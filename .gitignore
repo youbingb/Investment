@@ -18,8 +18,9 @@ dist/
 .env.local
 .env.*.local
 
-# 数据缓存（按需重新拉，不入库）
-data/cache/
+# 数据缓存（按需重新拉，不入库）；保留 .gitkeep 让目录入库
+data/cache/*
+!data/cache/.gitkeep
 *.parquet
 
 # 编辑器
