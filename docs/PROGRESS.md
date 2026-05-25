@@ -10,14 +10,15 @@
 | 1 | OKX 行情数据层（REST + parquet 缓存） | ✅ | 2026-05-26 完成；BTC/ETH 实测可拉数据 |
 | 2 | 均线指标层（复刻 Pine Script） | ✅ | 2026-05-26 完成；12 项单测全过；端到端 BTC-USDT 1H × 200 跑通 |
 | 3 | 信号引擎框架（含 2 个示例规则） | ✅ | 2026-05-26 完成；16 项单测全过 |
-| 4 | 调度器（APScheduler 轮询 → pipeline） | ⬜ | 下一步 |
-| 5 | 飞书提醒（lark-oapi 自建应用） | ⬜ | |
+| 4 | 调度器（APScheduler 轮询 → pipeline） | ✅ | 2026-05-26 完成；65 项全套单测全过；run_once 实测扫 4 个组合 |
+| 5 | 飞书提醒（lark-oapi 自建应用） | ⬜ | 下一步（需要用户填 .env 才能联通） |
 | 6 | 长跑模式 + 简易回测脚本（可选） | ⬜ | |
 
 ---
 
 ## 最新一次更新
 
+- **2026-05-26** — 阶段 4 完成。`runner/pipeline.py`、`scripts/run_once.py`、`runner/scheduler.py` 落地。16 项新单测，全套 65 测试全绿。`python scripts/run_once.py --enable-all` 端到端扫 4 个组合（BTC/ETH × 1H/4H）正常返回"无命中"。下一步进入阶段 5（飞书提醒），开始前需要用户填 `.env`。
 - **2026-05-26** — 阶段 3 完成。`signals/base.py`（Signal + SignalRule ABC）、`signals/examples/{golden_cross,dot_pullback}.py`、`signals/loader.py`（yaml 装配）落地。16 项单测全过；全套 49 测试全绿。下一步进入阶段 4（调度器）。
 - **2026-05-26** — 阶段 2 完成。`indicators/moving_average.py`、`indicators/dot_locator.py`、`indicators/__init__.compute_all` 三件套；`scripts/compute_once.py` CLI 跑通；12 项单测全过（含一条守门测试，防止 EMA 被改成 adjust=True）。下一步进入阶段 3（信号引擎）。
 - **2026-05-26** — 阶段 1 完成。OKX REST client + KlineStore parquet 缓存 + fetch_history CLI 都已落地，21 项单测全过。实测拉 BTC-USDT 1H × 100 根、ETH-USDT 4H × 50 根都成功。顺手修了 Windows 终端 UTF-8 乱码问题。下一步进入阶段 2（均线指标）。

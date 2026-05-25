@@ -2,6 +2,14 @@
 
 每行记录一次有意义的改动。文档微调（typo、格式）不入此表。
 
+## 2026-05-26 — 阶段 4 完成（调度器）
+
+- `src/investment/runner/pipeline.py`：`run_pipeline` 串 fetch → compute → signals；`load_watchlist` 展开 symbols.yaml；`PipelineResult` / `WatchItem` dataclass；全局 client/store 单例
+- `src/investment/runner/scheduler.py`：`trigger_for_timeframe` 把 OKX bar 映射成 UTC CronTrigger；`build_scheduler` 注册所有 watchlist job；`misfire_grace_time=120` 容忍 2 分钟内补跑；命中处留好阶段 5 接飞书的位置
+- `scripts/run_once.py`：CLI 跑一遍所有组合，`--enable-all` 临时启用所有内置规则；端到端实测 4 个组合扫描完毕
+- `tests/test_pipeline.py`：16 项新单测（load_watchlist、run_pipeline 规则隔离、4 类 trigger 映射 + 5 个非法 bar）
+- 全套 `pytest tests/` 65 项全过
+
 ## 2026-05-26 — 阶段 3 完成（信号引擎）
 
 - `src/investment/signals/base.py`：`Signal` frozen dataclass + `SignalRule` ABC，工具方法 `confirmed` / `last_two_confirmed`

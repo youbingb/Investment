@@ -17,7 +17,14 @@
 
 看 [PROGRESS.md](PROGRESS.md)（一张表）。
 
-**目前在哪儿**：阶段 0、1、2、3 完成，**下一步是阶段 4（调度器）**。
+**目前在哪儿**：阶段 0、1、2、3、4 完成，**下一步是阶段 5（飞书提醒）**。
+
+阶段 5 启动前**必须**先让用户填好 `.env` 里的：
+- `FEISHU_APP_ID`
+- `FEISHU_APP_SECRET`
+- `FEISHU_CHAT_ID`
+
+获取方法见 [EXTERNAL_APIS.md](EXTERNAL_APIS.md) "飞书自建应用发消息" 一节。
 
 阶段 1 已交付：
 - OKX V5 REST 客户端 `src/investment/data/okx_client.py`
@@ -39,6 +46,12 @@
 - `src/investment/signals/examples/dot_pullback.py`（dot 回踩支撑/压力）
 - `src/investment/signals/loader.py`（按 yaml 装配启用的规则）
 - 16 项单测全过；全套 49 测试全绿
+
+阶段 4 已交付：
+- `src/investment/runner/pipeline.py`（`run_pipeline` + `load_watchlist`，全局 client/store 单例，规则错误隔离）
+- `src/investment/runner/scheduler.py`（`trigger_for_timeframe` 把 OKX bar 映射成 UTC CronTrigger，`build_scheduler` 注册所有 watchlist job）
+- `scripts/run_once.py`（CLI 跑一遍，`--enable-all` 临时启用所有规则）
+- 16 项新单测，全套 65 项全过；端到端 `run_once.py --enable-all` 实测可跑
 
 ---
 
@@ -80,42 +93,41 @@ python -c "import investment; print(investment.__version__)"
 
 ## 进入下一阶段时该做什么
 
-按 [STAGES.md](STAGES.md) 走。下一阶段（**阶段 4 — 调度器**）的步骤：
+按 [STAGES.md](STAGES.md) 走。下一阶段（**阶段 5 — 飞书提醒**）的步骤：
 
-1. 看 STAGES.md "阶段 4" 段
+**⚠ 强制暂停点**：开始前确认 `.env` 里已经填了 `FEISHU_APP_ID` / `FEISHU_APP_SECRET` / `FEISHU_CHAT_ID`。如果没填，先停下来向用户说明获取步骤（见 [EXTERNAL_APIS.md](EXTERNAL_APIS.md)），等用户填完再继续。
+
+1. 看 STAGES.md "阶段 5" 段
 2. 关键结构：
-   - `src/investment/runner/pipeline.py`：单次完整 pipeline 函数 `run_pipeline(symbol, timeframe) -> List[Signal]`
-   - `src/investment/runner/scheduler.py`：APScheduler 入口
-   - `scripts/run_once.py`：`--once` 跑一次就退出
+   - `src/investment/notifier/feishu.py`：`FeishuNotifier(app_id, app_secret).send_text(chat_id, text)`
+   - `src/investment/notifier/dedup.py`：基于 (symbol, timeframe, rule, bar_ts) 的去重器，存 `data/cache/sent_signals.json`
+   - `scripts/send_test_message.py`：联通自检
+   - 阶段 4 的 `scheduler._job` 函数里的 TODO 处接 FeishuNotifier
 3. 关键设计：
-   - pipeline 内部串：`KlineStore.get_or_fetch` → `compute_all` → `for rule in load_rules(): rule.evaluate(...)`
-   - 对 `config/symbols.yaml` 里每个 enabled=true 的 (symbol, timeframe) 注册一个 cron job
-     - 1H 周期 → 每小时第 1 分钟执行
-     - 4H 周期 → 每 4 小时第 1 分钟执行（按 UTC 对齐：0, 4, 8, 12, 16, 20 时）
-   - 本阶段**不连飞书**，只在 stdout 打印 Signal 列表（阶段 5 才接飞书）
-   - `--once` 模式跑一遍所有 (symbol, timeframe) 后退出
-4. 颗粒度建议：先 `pipeline.py`，再 `run_once.py`（用 --once 模式跑一次），再 `scheduler.py`，最后测试
-5. 阶段 4 验收：
-   - `python scripts/run_once.py` 输出每个 (symbol, timeframe) 的命中情况
-   - 即便没有命中，也要清晰打印"未命中"
-   - 更新 PROGRESS / CHANGELOG / 本文件
-6. **不停下，直接进阶段 5**。阶段 5 接飞书时如果 .env 没有 app_id/app_secret/chat_id，应明确暂停并向用户列出获取步骤（见 EXTERNAL_APIS.md）。
+   - `content` 必须是 JSON 字符串，不是 dict：`content=json.dumps({"text": "..."})`
+   - `FEISHU_DRY_RUN=true` 时只打印不发，避免开发时刷群
+   - 失败重试 1 次，连续失败 ERROR 但不抛（不让飞书故障带挂 scheduler）
+4. 颗粒度建议：先 `feishu.py` + `send_test_message.py` 验证联通，再 `dedup.py`，再接入 scheduler，再单测
+5. 阶段 5 验收：
+   - `python scripts/send_test_message.py` → 飞书群收到 "Investment 联通测试"
+   - 手动构造命中规则跑 `run_once.py --notify` → 飞书收到 Signal
+   - 同 bar 再跑一次 → 不重复发
+6. 阶段 5 完成后可以继续阶段 6（可选，长跑 + 回测）。
 
-### 阶段 3（已完成）的关键产出，阶段 4 可直接复用：
+### 阶段 4（已完成）的关键产出，阶段 5 可直接复用：
 
-- `from investment.signals.loader import load_rules`
-- `from investment.indicators import compute_all`
-- `from investment.data.kline_store import KlineStore`
-- `from investment.data.okx_client import OKXClient`
-- `from investment.signals.base import Signal`
+- `from investment.runner.pipeline import run_pipeline`：跑一次拿 Signal 列表
+- `from investment.runner.scheduler import _job` 里有"命中处插入飞书"的占位
+- `from investment.config import get_settings`：拿 FEISHU_APP_ID 等
+- `from investment.signals.base import Signal`：`sig.dedup_key()` 直接拿去重键
 
-完整 pipeline 一行版（阶段 4 把这段封装到 `pipeline.py`）：
+阶段 5 接 scheduler 的最小改动：
 ```python
-client = OKXClient()
-store = KlineStore()
-rules = load_rules()
-df = compute_all(store.get_or_fetch(client, "BTC-USDT", "1H", 300))
-signals = [s for s in (r.evaluate(df, symbol="BTC-USDT", timeframe="1H") for r in rules) if s]
+# scheduler._job 内
+from investment.notifier.feishu import FeishuNotifier
+notifier = FeishuNotifier.from_settings()  # 单例
+for sig in result.signals:
+    notifier.send_text(sig.message)
 ```
 
 ---
