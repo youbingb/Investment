@@ -2,6 +2,15 @@
 
 每行记录一次有意义的改动。文档微调（typo、格式）不入此表。
 
+## 2026-05-26 — 阶段 3 完成（信号引擎）
+
+- `src/investment/signals/base.py`：`Signal` frozen dataclass + `SignalRule` ABC，工具方法 `confirmed` / `last_two_confirmed`
+- `src/investment/signals/examples/golden_cross.py`：fast 上/下穿 slow（默认 ema20 vs sma60）
+- `src/investment/signals/examples/dot_pullback.py`：当前 low 接近 dot 线（默认 dot60、阈值 0.5%）
+- `src/investment/signals/loader.py`：按 yaml `enabled=true` 装配规则；未知规则 / 配置异常都只 WARNING
+- `tests/test_signals.py`：16 项单测覆盖两个规则的命中/未命中边界 + loader 兜底
+- 全套 `pytest tests/` 49 项全过
+
 ## 2026-05-26 — 阶段 2 完成（均线指标层）
 
 - `src/investment/indicators/moving_average.py`：`sma` + `ema`（`ewm(adjust=False)`，TradingView ta.ema 兼容）

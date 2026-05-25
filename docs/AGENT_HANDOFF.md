@@ -17,7 +17,7 @@
 
 看 [PROGRESS.md](PROGRESS.md)（一张表）。
 
-**目前在哪儿**：阶段 0、1、2 完成，**下一步是阶段 3（信号引擎框架）**。
+**目前在哪儿**：阶段 0、1、2、3 完成，**下一步是阶段 4（调度器）**。
 
 阶段 1 已交付：
 - OKX V5 REST 客户端 `src/investment/data/okx_client.py`
@@ -32,6 +32,13 @@
 - `src/investment/indicators/__init__.compute_all`（追加 9 列）
 - `scripts/compute_once.py` CLI 跑通
 - 12 项单测全过，含一条"守门"测试防止 EMA 改回 `adjust=True`
+
+阶段 3 已交付：
+- `src/investment/signals/base.py`（`Signal` dataclass + `SignalRule` ABC + 工具方法）
+- `src/investment/signals/examples/golden_cross.py`（金叉/死叉）
+- `src/investment/signals/examples/dot_pullback.py`（dot 回踩支撑/压力）
+- `src/investment/signals/loader.py`（按 yaml 装配启用的规则）
+- 16 项单测全过；全套 49 测试全绿
 
 ---
 
@@ -73,33 +80,43 @@ python -c "import investment; print(investment.__version__)"
 
 ## 进入下一阶段时该做什么
 
-按 [STAGES.md](STAGES.md) 走。下一阶段（**阶段 3 — 信号引擎框架**）的步骤：
+按 [STAGES.md](STAGES.md) 走。下一阶段（**阶段 4 — 调度器**）的步骤：
 
-1. 看 STAGES.md "阶段 3" 段
+1. 看 STAGES.md "阶段 4" 段
 2. 关键结构：
-   - `src/investment/signals/base.py`：`SignalRule` ABC + `Signal` dataclass
-   - `src/investment/signals/examples/golden_cross.py`：EMA20 上穿 SMA60
-   - `src/investment/signals/examples/dot_pullback.py`：当前 low 接近 dot60（≤0.5%）
-   - `src/investment/signals/loader.py`：按 `config/signals.yaml` 加载启用的规则
-   - `tests/test_signals.py`
-3. **重要原则**：规则只看 `confirm == True` 的最末行（即最新一根已收盘 K 线），避免对未收盘 bar 误报
-4. `Signal` dataclass 字段：`symbol / timeframe / rule_name / direction (long/short) / bar_ts / price / message`
-5. 颗粒度建议：先 `base.py`，再两个 example，再 `loader.py`，再单测，分 5 次 commit
-6. 阶段 3 验收：
-   - `pytest tests/test_signals.py` 全绿（每个规则有命中 + 未命中 2 个 case）
+   - `src/investment/runner/pipeline.py`：单次完整 pipeline 函数 `run_pipeline(symbol, timeframe) -> List[Signal]`
+   - `src/investment/runner/scheduler.py`：APScheduler 入口
+   - `scripts/run_once.py`：`--once` 跑一次就退出
+3. 关键设计：
+   - pipeline 内部串：`KlineStore.get_or_fetch` → `compute_all` → `for rule in load_rules(): rule.evaluate(...)`
+   - 对 `config/symbols.yaml` 里每个 enabled=true 的 (symbol, timeframe) 注册一个 cron job
+     - 1H 周期 → 每小时第 1 分钟执行
+     - 4H 周期 → 每 4 小时第 1 分钟执行（按 UTC 对齐：0, 4, 8, 12, 16, 20 时）
+   - 本阶段**不连飞书**，只在 stdout 打印 Signal 列表（阶段 5 才接飞书）
+   - `--once` 模式跑一遍所有 (symbol, timeframe) 后退出
+4. 颗粒度建议：先 `pipeline.py`，再 `run_once.py`（用 --once 模式跑一次），再 `scheduler.py`，最后测试
+5. 阶段 4 验收：
+   - `python scripts/run_once.py` 输出每个 (symbol, timeframe) 的命中情况
+   - 即便没有命中，也要清晰打印"未命中"
    - 更新 PROGRESS / CHANGELOG / 本文件
-7. **不停下，直接进阶段 4**。只有在阶段 5 需要用户填飞书 .env（app_id / app_secret / chat_id）时才必须暂停等用户。
+6. **不停下，直接进阶段 5**。阶段 5 接飞书时如果 .env 没有 app_id/app_secret/chat_id，应明确暂停并向用户列出获取步骤（见 EXTERNAL_APIS.md）。
 
-### 阶段 2（已完成）的关键产出，阶段 3 可直接复用：
+### 阶段 3（已完成）的关键产出，阶段 4 可直接复用：
 
-- `from investment.indicators import compute_all, MA_PERIODS`：拿带 9 列指标的 df
-- 拿到 df 后只需要看尾部最后一根 `confirm=True` 的行；可以拿前一根做"上穿"判断
-  ```python
-  last_done = df[df["confirm"]].iloc[-1]
-  prev_done = df[df["confirm"]].iloc[-2]
-  if prev_done["ema20"] < prev_done["sma60"] and last_done["ema20"] > last_done["sma60"]:
-      # golden cross
-  ```
+- `from investment.signals.loader import load_rules`
+- `from investment.indicators import compute_all`
+- `from investment.data.kline_store import KlineStore`
+- `from investment.data.okx_client import OKXClient`
+- `from investment.signals.base import Signal`
+
+完整 pipeline 一行版（阶段 4 把这段封装到 `pipeline.py`）：
+```python
+client = OKXClient()
+store = KlineStore()
+rules = load_rules()
+df = compute_all(store.get_or_fetch(client, "BTC-USDT", "1H", 300))
+signals = [s for s in (r.evaluate(df, symbol="BTC-USDT", timeframe="1H") for r in rules) if s]
+```
 
 ---
 
