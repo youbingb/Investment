@@ -22,6 +22,8 @@ def setup_logger() -> None:
     if _configured:
         return
 
+    _force_utf8_console()
+
     settings = get_settings()
     logger.remove()
     logger.add(
@@ -36,6 +38,20 @@ def setup_logger() -> None:
         diagnose=False,
     )
     _configured = True
+
+
+def _force_utf8_console() -> None:
+    """Windows 控制台默认 GBK / CP936，中文会乱码。
+
+    Python 3.7+ 的 ``sys.stdout/stderr.reconfigure`` 能把流编码改成 UTF-8；
+    失败就静默忽略（容器、IDE、被重定向到文件时可能没这个方法）。
+    """
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8")
+            except (OSError, ValueError):
+                pass
 
 
 __all__ = ["setup_logger", "logger"]
