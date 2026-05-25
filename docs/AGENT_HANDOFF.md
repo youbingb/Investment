@@ -17,7 +17,14 @@
 
 看 [PROGRESS.md](PROGRESS.md)（一张表）。
 
-**目前在哪儿**：阶段 0 完成，**下一步是阶段 1（OKX 行情数据层）**。
+**目前在哪儿**：阶段 0、1 完成，**下一步是阶段 2（均线指标层）**。
+
+阶段 1 已交付：
+- OKX V5 REST 客户端 `src/investment/data/okx_client.py`
+- K 线本地缓存 `src/investment/data/kline_store.py`
+- CLI 入口 `scripts/fetch_history.py`
+- 21 项单测全过（`pytest tests/test_okx_client.py`）
+- 实测：BTC/ETH 真实数据已成功落到 `data/cache/*.parquet`
 
 ---
 
@@ -59,23 +66,25 @@ python -c "import investment; print(investment.__version__)"
 
 ## 进入下一阶段时该做什么
 
-按 [STAGES.md](STAGES.md) 走。下一阶段（阶段 1）的步骤：
+按 [STAGES.md](STAGES.md) 走。下一阶段（**阶段 2 — 均线指标层**）的步骤：
 
-1. 看 STAGES.md "阶段 1" 段的关键文件清单、设计要点、验收方式
-2. 看 [EXTERNAL_APIS.md](EXTERNAL_APIS.md) 的 OKX 章节，**特别注意**：
-   - symbol 是 `BTC-USDT`（破折号）
-   - bar 是 `1H`（大写 H）
-   - 返回顺序是最新在前，要翻正
-   - `limit` 上限 300
-3. 在 `tests/` 下先写测试再写实现（用 `data/samples/` 下的固定 JSON / CSV 做断言）
-4. 颗粒度：建议先 commit "OKX client 基础 fetch_candles"，再 commit "KlineStore parquet 缓存"，再 commit "fetch_history CLI 脚本"
-5. 阶段 1 完成验收：
-   - `python scripts/fetch_history.py BTC-USDT 1H 500` 跑通
-   - `pytest tests/test_okx_client.py` 全绿
-   - 更新 PROGRESS.md 阶段 1 → ✅
-   - 更新 CHANGELOG.md
-   - 更新本文件 "当前进度" 段
-6. **不停下，直接进阶段 2**。只有在阶段 5 需要用户填飞书 .env（app_id / app_secret / chat_id）时才必须暂停等用户。
+1. 看 STAGES.md "阶段 2" 段的关键文件清单、设计要点、验收方式
+2. 看 [PINE_SCRIPT_MAPPING.md](PINE_SCRIPT_MAPPING.md)，那里有用户原 Pine Script 全文和逐行 Python 对照
+3. **重要**：EMA 用 `pandas.Series.ewm(span=period, adjust=False).mean()`，**不是 `adjust=True`**，否则数值跟 TradingView 对不上
+4. 颗粒度建议：先 commit `moving_average.py`，再 commit `dot_locator.py`，再 commit `compute_all` + `scripts/compute_once.py`，再 commit 单测
+5. 阶段 2 验收：
+   - `python scripts/compute_once.py BTC-USDT 1H` 打印最近 5 行带 sma20/sma60/sma120/ema20/ema60/ema120/dot20/dot60/dot120 列
+   - `pytest tests/test_indicators.py` 全绿
+   - 数值与 TradingView 同周期均线一致（用户自验）
+   - 更新 PROGRESS.md / CHANGELOG.md / 本文件
+6. **不停下，直接进阶段 3**。只有在阶段 5 需要用户填飞书 .env（app_id / app_secret / chat_id）时才必须暂停等用户。
+
+### 阶段 1（已完成）的关键产出，阶段 2 可直接复用：
+
+- `from investment.data.kline_store import KlineStore`：拿带 ts/open/high/low/close 的 DataFrame
+- `from investment.data.okx_client import OKXClient`：要新数据时
+- `from investment.logger import logger, setup_logger`：日志
+- `data/cache/BTC-USDT_1H.parquet`、`data/cache/ETH-USDT_4H.parquet` 已经有缓存数据，可以离线开发
 
 ---
 
@@ -95,8 +104,10 @@ python -c "import investment; print(investment.__version__)"
 
 ## 已知坑 / TODO
 
-- [ ] OKX 在某些 IP 段（国内裸连）需要走 HK 节点或代理；先在用户机器上验证一遍
-- [ ] 飞书 chat_id 获取目前是手动步骤，文档里要写清楚
+- [x] ~~Windows 下中文输出乱码~~ — 已在阶段 1 修复（logger 启动时强制 UTF-8）
+- [x] ~~Windows pip 用 GBK 解码 requirements.txt 中文注释失败~~ — 已删除中文注释
+- [ ] OKX 在某些 IP 段（国内裸连）需要走 HK 节点或代理；目前实测网络正常
+- [ ] 飞书 chat_id 获取目前是手动步骤，阶段 5 文档里要写清楚
 - [ ] Windows 下 LF/CRLF 换行符警告很多，可以加 `.gitattributes` 治本（优先级低）
 - [ ] 阶段 6 的回测脚本只是简易统计，不是完整回测框架
 
