@@ -2,6 +2,15 @@
 
 每行记录一次有意义的改动。文档微调（typo、格式）不入此表。
 
+## 2026-05-26 — 阶段 2 完成（均线指标层）
+
+- `src/investment/indicators/moving_average.py`：`sma` + `ema`（`ewm(adjust=False)`，TradingView ta.ema 兼容）
+- `src/investment/indicators/dot_locator.py`：`dot_low(low, n) = low.shift(n)`（Pine Script `bl[N]` 等价）
+- `src/investment/indicators/__init__.py`：`compute_all(df)` 给 df 追加 sma/ema/dot 各 3 个周期共 9 列
+- `scripts/compute_once.py`：CLI 端到端 (`python scripts/compute_once.py BTC-USDT 1H --n 300`)
+- `tests/test_indicators.py`：12 项单测，含 EMA adjust=False 守门测试
+- 端到端实测：BTC-USDT 1H × 200 根，9 个指标都给出合理数值
+
 ## 2026-05-26 — 阶段 1 完成（OKX 数据层）
 
 - `src/investment/config.py`：pydantic-settings 读 .env，OKX + Feishu + Log 三组配置 + `get_settings` lru_cache 单例

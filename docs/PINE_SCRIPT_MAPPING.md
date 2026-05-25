@@ -86,3 +86,13 @@ df['dot20'], df['dot60'], df['dot120']   # 第 i 行的 dot20 = 第 i-20 行的 
 2. 跑 `python scripts/compute_once.py BTC-USDT 1H`
 3. 对照最新已收盘 K 线的 sma20/sma60/sma120/ema20/ema60/ema120 数值，与 TradingView 鼠标悬停在那根 K 线时显示的数值对比
 4. 误差应在 0.01% 以内（浮点精度差异）；如果差超过 0.1%，多半是 EMA 用错了 `adjust=True`
+
+---
+
+## 实施状态
+
+✅ **2026-05-26**：阶段 2 完成。
+- `sma` / `ema` / `dot_low` / `compute_all` 已落在 `src/investment/indicators/`
+- `tests/test_indicators.py` 12 项单测全过，含一条 EMA `adjust=False` 守门测试
+- `scripts/compute_once.py BTC-USDT 1H --n 200` 端到端跑通
+- TradingView 数值对照由用户在浏览器端自验（截图对比）

@@ -17,7 +17,7 @@
 
 看 [PROGRESS.md](PROGRESS.md)（一张表）。
 
-**目前在哪儿**：阶段 0、1 完成，**下一步是阶段 2（均线指标层）**。
+**目前在哪儿**：阶段 0、1、2 完成，**下一步是阶段 3（信号引擎框架）**。
 
 阶段 1 已交付：
 - OKX V5 REST 客户端 `src/investment/data/okx_client.py`
@@ -25,6 +25,13 @@
 - CLI 入口 `scripts/fetch_history.py`
 - 21 项单测全过（`pytest tests/test_okx_client.py`）
 - 实测：BTC/ETH 真实数据已成功落到 `data/cache/*.parquet`
+
+阶段 2 已交付：
+- `src/investment/indicators/moving_average.py`（`sma` + `ema`，`adjust=False`）
+- `src/investment/indicators/dot_locator.py`（`dot_low = low.shift(n)`）
+- `src/investment/indicators/__init__.compute_all`（追加 9 列）
+- `scripts/compute_once.py` CLI 跑通
+- 12 项单测全过，含一条"守门"测试防止 EMA 改回 `adjust=True`
 
 ---
 
@@ -66,25 +73,33 @@ python -c "import investment; print(investment.__version__)"
 
 ## 进入下一阶段时该做什么
 
-按 [STAGES.md](STAGES.md) 走。下一阶段（**阶段 2 — 均线指标层**）的步骤：
+按 [STAGES.md](STAGES.md) 走。下一阶段（**阶段 3 — 信号引擎框架**）的步骤：
 
-1. 看 STAGES.md "阶段 2" 段的关键文件清单、设计要点、验收方式
-2. 看 [PINE_SCRIPT_MAPPING.md](PINE_SCRIPT_MAPPING.md)，那里有用户原 Pine Script 全文和逐行 Python 对照
-3. **重要**：EMA 用 `pandas.Series.ewm(span=period, adjust=False).mean()`，**不是 `adjust=True`**，否则数值跟 TradingView 对不上
-4. 颗粒度建议：先 commit `moving_average.py`，再 commit `dot_locator.py`，再 commit `compute_all` + `scripts/compute_once.py`，再 commit 单测
-5. 阶段 2 验收：
-   - `python scripts/compute_once.py BTC-USDT 1H` 打印最近 5 行带 sma20/sma60/sma120/ema20/ema60/ema120/dot20/dot60/dot120 列
-   - `pytest tests/test_indicators.py` 全绿
-   - 数值与 TradingView 同周期均线一致（用户自验）
-   - 更新 PROGRESS.md / CHANGELOG.md / 本文件
-6. **不停下，直接进阶段 3**。只有在阶段 5 需要用户填飞书 .env（app_id / app_secret / chat_id）时才必须暂停等用户。
+1. 看 STAGES.md "阶段 3" 段
+2. 关键结构：
+   - `src/investment/signals/base.py`：`SignalRule` ABC + `Signal` dataclass
+   - `src/investment/signals/examples/golden_cross.py`：EMA20 上穿 SMA60
+   - `src/investment/signals/examples/dot_pullback.py`：当前 low 接近 dot60（≤0.5%）
+   - `src/investment/signals/loader.py`：按 `config/signals.yaml` 加载启用的规则
+   - `tests/test_signals.py`
+3. **重要原则**：规则只看 `confirm == True` 的最末行（即最新一根已收盘 K 线），避免对未收盘 bar 误报
+4. `Signal` dataclass 字段：`symbol / timeframe / rule_name / direction (long/short) / bar_ts / price / message`
+5. 颗粒度建议：先 `base.py`，再两个 example，再 `loader.py`，再单测，分 5 次 commit
+6. 阶段 3 验收：
+   - `pytest tests/test_signals.py` 全绿（每个规则有命中 + 未命中 2 个 case）
+   - 更新 PROGRESS / CHANGELOG / 本文件
+7. **不停下，直接进阶段 4**。只有在阶段 5 需要用户填飞书 .env（app_id / app_secret / chat_id）时才必须暂停等用户。
 
-### 阶段 1（已完成）的关键产出，阶段 2 可直接复用：
+### 阶段 2（已完成）的关键产出，阶段 3 可直接复用：
 
-- `from investment.data.kline_store import KlineStore`：拿带 ts/open/high/low/close 的 DataFrame
-- `from investment.data.okx_client import OKXClient`：要新数据时
-- `from investment.logger import logger, setup_logger`：日志
-- `data/cache/BTC-USDT_1H.parquet`、`data/cache/ETH-USDT_4H.parquet` 已经有缓存数据，可以离线开发
+- `from investment.indicators import compute_all, MA_PERIODS`：拿带 9 列指标的 df
+- 拿到 df 后只需要看尾部最后一根 `confirm=True` 的行；可以拿前一根做"上穿"判断
+  ```python
+  last_done = df[df["confirm"]].iloc[-1]
+  prev_done = df[df["confirm"]].iloc[-2]
+  if prev_done["ema20"] < prev_done["sma60"] and last_done["ema20"] > last_done["sma60"]:
+      # golden cross
+  ```
 
 ---
 
