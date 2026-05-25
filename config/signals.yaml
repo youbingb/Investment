@@ -1,0 +1,19 @@
+# 信号规则开关与参数（阶段 3 起用）
+# 阶段 0/1/2 时此文件不被读取，仅作为示意
+
+rules:
+  # 内置示例：均线金叉
+  golden_cross:
+    enabled: false              # 阶段 3 才打开
+    fast: ema20
+    slow: sma60
+
+  # 内置示例：圆点回踩
+  dot_pullback:
+    enabled: false
+    dot: dot60                  # 用 dot20 / dot60 / dot120
+    tolerance_pct: 0.5          # 当前 low 距离 dot 值在 ±0.5% 内视为回踩
+
+# 通用配置
+notify:
+  dedup_window_bars: 3          # 同一规则在 N 根 K 线内只发一次

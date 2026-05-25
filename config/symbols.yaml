@@ -1,0 +1,17 @@
+# 监控的交易对清单
+# 修改后重启 scheduler 生效
+# symbol 必须是 OKX V5 格式：BTC-USDT（不是 BTC/USDT 或 BTCUSDT）
+
+watchlist:
+  - symbol: BTC-USDT
+    timeframes: ["1H", "4H"]    # 同一币种可同时关注多个周期
+    enabled: true
+
+  - symbol: ETH-USDT
+    timeframes: ["1H", "4H"]
+    enabled: true
+
+# 取数参数
+fetch:
+  history_bars: 300             # 启动时拉取的历史 K 线数（>= max(MA period) + 一些缓冲）
+  request_interval_sec: 0.2     # 每次 REST 请求之间的间隔，避免限频

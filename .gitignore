@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.uv/
+.python-version
+
+# 测试 / 构建
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+
+# 秘钥与本地配置（永远不能入库）
+.env
+.env.local
+.env.*.local
+
+# 数据缓存（按需重新拉，不入库）
+data/cache/
+*.parquet
+
+# 编辑器
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# 日志
+logs/
+*.log

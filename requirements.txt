@@ -1,0 +1,16 @@
+# 与 pyproject.toml 保持同步；保留给不用 uv 的环境
+requests>=2.31
+pandas>=2.2
+pyarrow>=15.0
+pydantic>=2.6
+pydantic-settings>=2.2
+python-dotenv>=1.0
+pyyaml>=6.0
+apscheduler>=3.10
+lark-oapi>=1.2
+loguru>=0.7
+
+# dev
+pytest>=8.0
+pytest-mock>=3.12
+ruff>=0.4
