@@ -2,6 +2,16 @@
 
 每行记录一次有意义的改动。文档微调（typo、格式）不入此表。
 
+## 2026-05-26 — 阶段 6.6（盈亏比 + Streamlit 可视化）
+
+- `src/investment/runner/backtest.py`：`stats_by_rule()` 新增 `avg_win` / `avg_loss` / `payoff_ratio`（赔率：均盈/|均亏|）/ `profit_factor`（盈亏比：总盈/|总亏|）；提取 `_ratio_pos_over_negabs` 处理零笔/全胜/全负边界（NaN / inf / 0）
+- `scripts/backtest.py`：终端表头扩到 11 列，增加平均盈 / 平均亏 / 赔率 / 盈亏比
+- `scripts/dashboard.py`：新增 Streamlit 仪表盘 — sidebar 选 symbol/tf/规则/时间窗/horizons/exit_after；主区头部 5 指标 + 4 模块（NAV+回撤、按规则统计表、K 线+long/short 散点、每笔 exit_return 直方图）；图表用 plotly
+- `pyproject.toml` / `requirements.txt`：新增可选 `viz` 依赖组（streamlit≥1.30、plotly≥5.18）
+- `tests/test_backtest.py` +4 项：payoff/profit_factor 基本算式、全胜→inf、全负→0、零笔→NaN
+- 全套 `pytest tests/` 118 项全过
+- Streamlit 端到端烟测：headless 启动 + Playwright 渲染验证（命中 34 笔 / 累计 -0.26% / 整体胜率 64.7%）
+
 ## 2026-05-26 — 阶段 6 增强（完整历史回测）
 
 - `src/investment/runner/backtest.py`：新增 `SignalOutcome`（entry_price / horizon_returns / mfe_pct / mae_pct / exit_return / is_win）；`evaluate_outcomes(result, df, horizons, exit_horizon)` 后处理 long/short 反号 + MFE/MAE 在 exit 窗口内、neutral 跳过、窗口不足 NaN；`BacktestResult` 加 `stats_by_rule` / `equity_curve` / `total_return` / `max_drawdown`；`backtest_with_returns` 一次跑完

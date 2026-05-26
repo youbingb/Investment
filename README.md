@@ -43,8 +43,9 @@ python scripts/send_test_message.py                         # 飞书群应收到
 | 启动长跑守护 | `python scripts/run_forever.py` |
 | 守护干跑（只列 job） | `python scripts/run_forever.py --list-jobs` |
 | 联通自检 | `python scripts/send_test_message.py` |
-| 历史回放（胜率 / 收益 / equity） | `python scripts/backtest.py BTC-USDT 1H --enable-all` |
+| 历史回放（胜率 / 收益 / 盈亏比 / equity） | `python scripts/backtest.py BTC-USDT 1H --enable-all` |
 | 回测明细导出 CSV | `python scripts/backtest.py BTC-USDT 1H --enable-all --csv data/reports/btc_1h.csv` |
+| 可视化仪表盘（需先装 viz 依赖） | `pip install -e .[viz]` 然后 `streamlit run scripts/dashboard.py` |
 
 ---
 

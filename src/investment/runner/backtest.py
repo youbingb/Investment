@@ -89,19 +89,24 @@ class BacktestResult:
     # ---- 收益层面汇总（需要 outcomes）----
 
     def stats_by_rule(self) -> dict[str, dict[str, float]]:
-        """按规则汇总：count / trades / wins / win_rate / avg_return / median_return / avg_mfe / avg_mae。
+        """按规则汇总。字段：
 
-        - count = 命中数
-        - trades = 实际有完整 exit_horizon 窗口的数量
-        - wins / win_rate 只统计 trades
-        - avg_return / median_return / avg_mfe / avg_mae 在 trades 上算
+        - count       命中数
+        - trades      有完整 exit_horizon 窗口的笔数
+        - wins        trades 中盈利笔数
+        - win_rate    wins / trades
+        - avg_return  trades 平均收益
+        - median_return
+        - avg_mfe / avg_mae
+        - avg_win     盈利笔的平均收益（无盈利 → NaN）
+        - avg_loss    亏损笔的平均收益（负数，无亏损 → NaN）
+        - payoff_ratio   avg_win / |avg_loss|（赔率）。全胜 → inf，全负 → 0，零笔 → NaN
+        - profit_factor  sum(wins) / |sum(losses)|（盈亏比，常用稳健口径）。同上边界
         """
         stats: dict[str, dict[str, float]] = {}
-        # 先按 rule 收集 outcomes
         per_rule: dict[str, list[SignalOutcome]] = {}
         for o in self.outcomes:
             per_rule.setdefault(o.signal.rule_name, []).append(o)
-        # 没产生 outcome（被 neutral 跳过）的规则也要在表里露出来，从 signals 里补 count
         for s in self.signals:
             per_rule.setdefault(s.rule_name, per_rule.get(s.rule_name, []))
 
@@ -114,6 +119,17 @@ class BacktestResult:
             mfes = [o.mfe_pct for o in trades if not math.isnan(o.mfe_pct)]
             maes = [o.mae_pct for o in trades if not math.isnan(o.mae_pct)]
 
+            win_rets = [r for r in returns if r > 0]
+            loss_rets = [r for r in returns if r <= 0]
+            avg_win = (sum(win_rets) / len(win_rets)) if win_rets else float("nan")
+            avg_loss = (sum(loss_rets) / len(loss_rets)) if loss_rets else float("nan")
+            payoff_ratio = _ratio_pos_over_negabs(avg_win, avg_loss, n_trades)
+            profit_factor = _ratio_pos_over_negabs(
+                sum(win_rets) if win_rets else float("nan"),
+                sum(loss_rets) if loss_rets else float("nan"),
+                n_trades,
+            )
+
             stats[name] = {
                 "count": float(count),
                 "trades": float(n_trades),
@@ -123,6 +139,10 @@ class BacktestResult:
                 "median_return": _median(returns) if n_trades else float("nan"),
                 "avg_mfe": (sum(mfes) / len(mfes)) if mfes else float("nan"),
                 "avg_mae": (sum(maes) / len(maes)) if maes else float("nan"),
+                "avg_win": avg_win,
+                "avg_loss": avg_loss,
+                "payoff_ratio": payoff_ratio,
+                "profit_factor": profit_factor,
             }
         return stats
 
@@ -173,6 +193,29 @@ def _median(xs: list[float]) -> float:
     if n % 2 == 1:
         return s[n // 2]
     return (s[n // 2 - 1] + s[n // 2]) / 2
+
+
+def _ratio_pos_over_negabs(pos: float, neg: float, n_trades: int) -> float:
+    """正项 / |负项| 的统一边界处理。
+
+    - 零笔 → NaN
+    - 全胜（无亏损样本，neg NaN）→ +inf
+    - 全负（无盈利样本，pos NaN）→ 0
+    - 正常 → pos / abs(neg)
+    """
+    if n_trades == 0:
+        return float("nan")
+    pos_nan = isinstance(pos, float) and math.isnan(pos)
+    neg_nan = isinstance(neg, float) and math.isnan(neg)
+    if pos_nan and neg_nan:
+        return float("nan")
+    if neg_nan:
+        return float("inf")
+    if pos_nan:
+        return 0.0
+    if neg == 0:
+        return float("inf") if pos > 0 else 0.0
+    return pos / abs(neg)
 
 
 # ============================================================

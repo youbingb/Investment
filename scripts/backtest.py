@@ -73,28 +73,40 @@ def _fmt_pct(x: float) -> str:
     return f"{x*100:+6.2f}%"
 
 
+def _fmt_ratio(x: float) -> str:
+    if x is None or (isinstance(x, float) and math.isnan(x)):
+        return "  -  "
+    if math.isinf(x):
+        return "  inf"
+    return f"{x:6.2f}"
+
+
 def _print_per_rule_stats(result: BacktestResult) -> None:
     stats = result.stats_by_rule()
     if not stats:
         print("（无规则统计）")
         return
-    headers = ["规则", "命中", "完整窗口", "胜率", "平均收益", "中位收益", "平均 MFE", "平均 MAE"]
-    print(f"{headers[0]:<16} {headers[1]:>6} {headers[2]:>8} "
-          f"{headers[3]:>8} {headers[4]:>10} {headers[5]:>10} "
-          f"{headers[6]:>10} {headers[7]:>10}")
-    print("-" * 96)
+    headers = ["规则", "命中", "完整窗口", "胜率", "平均收益",
+               "平均盈", "平均亏", "赔率", "盈亏比", "平均 MFE", "平均 MAE"]
+    print(f"{headers[0]:<14} {headers[1]:>6} {headers[2]:>8} "
+          f"{headers[3]:>7} {headers[4]:>9} {headers[5]:>9} {headers[6]:>9} "
+          f"{headers[7]:>7} {headers[8]:>7} {headers[9]:>9} {headers[10]:>9}")
+    print("-" * 114)
     for name, st in sorted(stats.items(), key=lambda x: -x[1]["count"]):
         wr = st["win_rate"]
         wr_s = f"{wr*100:6.1f}%" if not math.isnan(wr) else "   -  "
         print(
-            f"{name:<16} "
+            f"{name:<14} "
             f"{int(st['count']):>6d} "
             f"{int(st['trades']):>8d} "
-            f"{wr_s:>8} "
-            f"{_fmt_pct(st['avg_return']):>10} "
-            f"{_fmt_pct(st['median_return']):>10} "
-            f"{_fmt_pct(st['avg_mfe']):>10} "
-            f"{_fmt_pct(st['avg_mae']):>10}"
+            f"{wr_s:>7} "
+            f"{_fmt_pct(st['avg_return']):>9} "
+            f"{_fmt_pct(st['avg_win']):>9} "
+            f"{_fmt_pct(st['avg_loss']):>9} "
+            f"{_fmt_ratio(st['payoff_ratio']):>7} "
+            f"{_fmt_ratio(st['profit_factor']):>7} "
+            f"{_fmt_pct(st['avg_mfe']):>9} "
+            f"{_fmt_pct(st['avg_mae']):>9}"
         )
 
 

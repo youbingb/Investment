@@ -12,11 +12,13 @@
 | 3 | 信号引擎框架（含 2 个示例规则） | ✅ | 2026-05-26 完成；16 项单测全过 |
 | 4 | 调度器（APScheduler 轮询 → pipeline） | ✅ | 2026-05-26 完成；65 项全套单测全过；run_once 实测扫 4 个组合 |
 | 5 | 飞书提醒（lark-oapi 自建应用） | ✅ | 2026-05-26 完成（DRY-RUN 通路）；94 项全套单测全过。联通测试待用户填 .env 后跑 send_test_message.py |
-| 6 | 长跑模式 + 简易回测脚本（可选） | ✅ | 2026-05-26 完成 + 增强；114 项全套单测全过；backtest 实测 BTC-USDT 1H 13 天 34 笔 / 累计 -0.26% / 回撤 -8.30% |
+| 6 | 长跑模式 + 简易回测脚本（可选） | ✅ | 2026-05-26 完成 + 增强 + 可视化；118 项全套单测全过；backtest 实测 BTC-USDT 1H 13 天 34 笔；Streamlit 仪表盘已上线（`streamlit run scripts/dashboard.py`） |
 
 ---
 
 ## 最新一次更新
+
+- **2026-05-26** — 阶段 6.6（盈亏比 + Streamlit 可视化）。`runner/backtest.py.stats_by_rule` 新增 avg_win / avg_loss / payoff_ratio（赔率）/ profit_factor（盈亏比），边界（零笔/全胜/全负）走 `_ratio_pos_over_negabs` 统一映射 NaN/inf/0；`scripts/backtest.py` 表头扩到 11 列；新增 `scripts/dashboard.py` Streamlit 仪表盘（sidebar 选 symbol/tf/规则/时间窗，主区域：5 头部指标 + NAV+回撤 + 规则统计表 + K 线+long/short 散点 + exit_return 直方图，plotly 出图）；`pyproject.toml` / `requirements.txt` 加 `viz` 可选依赖（streamlit≥1.30、plotly≥5.18）。+4 项单测，全套 118 项全绿。Playwright headless 端到端烟测通过。
 
 - **2026-05-26** — 阶段 6 增强（完整历史回测）。`runner/backtest.py` 加 `SignalOutcome` + `evaluate_outcomes` + 聚合（胜率 / 平均·中位收益 / MFE-MAE / equity / drawdown）；`scripts/backtest.py` 升级到终端三段表 + `--horizons` / `--exit-after` / `--csv` 选项；`.gitignore` 屏蔽 `data/reports/*`。+12 项新单测，全套 114 项全绿。实测 BTC-USDT 1H 缓存：dot_pullback 胜率 67.7%、golden_cross 33.3%、累计简单收益 -0.26%、最大回撤 -8.30%。
 - **2026-05-26** — 阶段 6 完成。`runner/backtest.py`（backtest_rules + BacktestResult）、`scripts/backtest.py` CLI（实测 BTC-USDT 1H 309 根 → 34 命中）、`scripts/run_forever.py` 守护进程 CLI（含启动横幅 + `--list-jobs`）、`README.md` 重写为快速开始 + 部署模板（systemd / nssm / Docker），顺手修复 README 的 UTF-16 LE 乱码。8 项新单测，全套 102 项全绿。项目主流程**到此完工**。剩余收尾工作：用户填 .env 凭证后跑联通自检 `send_test_message.py`。

@@ -30,6 +30,10 @@ dev = [
     "pytest-mock>=3.12",
     "ruff>=0.4",
 ]
+viz = [
+    "streamlit>=1.30",
+    "plotly>=5.18",
+]
 
 [build-system]
 requires = ["hatchling"]

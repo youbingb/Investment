@@ -350,6 +350,63 @@ def test_equity_curve_empty_when_no_outcomes():
 
 
 # ============================================================
+#  payoff_ratio / profit_factor
+# ============================================================
+
+def test_payoff_and_profit_factor_basic():
+    """两胜一负：胜 +25% / +20%，负 -3% → payoff = 22.5/3，profit_factor = 45/3。"""
+    closes = [100, 105, 110, 115, 120, 125] + \
+             [125, 130, 135, 140, 145, 150] + \
+             [150, 145.5, 145.5, 145.5, 145.5, 145.5]
+    df = _custom_df([float(c) for c in closes])
+    s1 = _signal_at(df, 0, "long")   # +25%
+    s2 = _signal_at(df, 6, "long")   # +20%
+    s3 = _signal_at(df, 12, "long")  # -3%
+    result = BacktestResult("X-USDT", "1H", len(closes), len(closes),
+                            signals=[s1, s2, s3])
+    evaluate_outcomes(result, df, horizons=(5,), exit_horizon=5)
+    st = result.stats_by_rule()["test_rule"]
+    assert st["avg_win"] == pytest.approx((0.25 + 0.20) / 2)
+    assert st["avg_loss"] == pytest.approx(-0.03)
+    assert st["payoff_ratio"] == pytest.approx(0.225 / 0.03)
+    assert st["profit_factor"] == pytest.approx(0.45 / 0.03)
+
+
+def test_payoff_inf_when_all_wins():
+    df = _custom_df([100.0 + i for i in range(30)])
+    s = _signal_at(df, 0, "long")
+    result = BacktestResult("X-USDT", "1H", 30, 30, signals=[s])
+    evaluate_outcomes(result, df, horizons=(5,), exit_horizon=5)
+    st = result.stats_by_rule()["test_rule"]
+    assert math.isinf(st["payoff_ratio"])
+    assert math.isinf(st["profit_factor"])
+    assert math.isnan(st["avg_loss"])
+
+
+def test_payoff_zero_when_all_losses():
+    """全部 short 信号在涨段 → 全部亏损 → payoff = 0。"""
+    df = _custom_df([100.0 + i for i in range(30)])
+    s = _signal_at(df, 0, "short")
+    result = BacktestResult("X-USDT", "1H", 30, 30, signals=[s])
+    evaluate_outcomes(result, df, horizons=(5,), exit_horizon=5)
+    st = result.stats_by_rule()["test_rule"]
+    assert st["payoff_ratio"] == 0.0
+    assert st["profit_factor"] == 0.0
+    assert math.isnan(st["avg_win"])
+
+
+def test_payoff_nan_when_no_trades():
+    """neutral 信号被跳过 → 0 trades → NaN。"""
+    df = _custom_df([100.0 + i for i in range(20)])
+    s = _signal_at(df, 0, "neutral")
+    result = BacktestResult("X-USDT", "1H", 20, 20, signals=[s])
+    evaluate_outcomes(result, df, horizons=(5,), exit_horizon=5)
+    st = result.stats_by_rule()["test_rule"]
+    assert math.isnan(st["payoff_ratio"])
+    assert math.isnan(st["profit_factor"])
+
+
+# ============================================================
 #  backtest_with_returns —— 一次跑完
 # ============================================================
 
