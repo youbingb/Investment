@@ -17,9 +17,9 @@
 
 看 [PROGRESS.md](PROGRESS.md)（一张表）。
 
-**目前在哪儿**：阶段 0、1、2、3、4、5 完成。阶段 5 是 **DRY-RUN 通路完成**，**真实联通测试待用户填 `.env`**。**下一步可选阶段 6**（长跑 + 回测）。
+**目前在哪儿**：阶段 0-6 全部完成。**项目主流程到此完工**。
 
-⚠ **阶段 5 收尾任务**：用户填 `.env` 里的 `FEISHU_APP_ID` / `FEISHU_APP_SECRET` / `FEISHU_CHAT_ID`、把 `FEISHU_DRY_RUN` 改成 `false` 之后，跑：
+唯一未完成的收尾：**真实联通测试** —— 用户需要填 `.env` 里的 `FEISHU_APP_ID` / `FEISHU_APP_SECRET` / `FEISHU_CHAT_ID` 并把 `FEISHU_DRY_RUN` 设 `false`，然后跑：
 
 ```bash
 python scripts/send_test_message.py
@@ -65,6 +65,14 @@ python scripts/send_test_message.py
 - 29 项新单测：`tests/test_feishu_notifier.py` (15) + `tests/test_dedup.py` (10) + `tests/test_pipeline.py` 增 4 项；全套 94 测试全绿
 - 联通测试待办：用户填 `.env` → 跑 `scripts/send_test_message.py`
 
+阶段 6 已交付：
+- `src/investment/runner/backtest.py`（`backtest_rules` 滚动跑每根 confirmed bar；warmup 125；`BacktestResult.hits_by_rule` / `hits_by_direction`）
+- `scripts/backtest.py`（CLI；`--start/--end/--enable-all/--limit-show`）
+- `scripts/run_forever.py`（守护进程 CLI；启动横幅显示 watchlist / dry-run / 脱敏 chat_id；`--list-jobs` 干跑）
+- `README.md` 修 UTF-16 乱码 + 重写为快速开始 + systemd / nssm / Docker 部署模板
+- 8 项新单测；全套 102 测试全绿
+- 端到端实测：`backtest BTC-USDT 1H --enable-all` 13 天 309 根 → 34 命中
+
 ---
 
 ## 用户强约束（必读，别违反）
@@ -107,7 +115,7 @@ python -c "import investment; print(investment.__version__)"
 
 按 [STAGES.md](STAGES.md) 走。
 
-### 收尾阶段 5（建议先做这步，10 分钟）
+### 收尾任务：阶段 5 真实联通测试（10 分钟，需要用户参与）
 
 1. 拿到飞书 `app_id` / `app_secret` / `chat_id`（步骤见 [EXTERNAL_APIS.md](EXTERNAL_APIS.md)）
 2. 编辑 `.env`：
@@ -128,21 +136,37 @@ python -c "import investment; print(investment.__version__)"
    ```
    同 bar 再跑一次，飞书应该**不重发**（去重已生效）。
 
-### 下一阶段（可选）— 阶段 6 长跑 + 简易回测
+### 长跑投入使用
 
-主要内容：
-- `scripts/run_forever.py`：scheduler 守护进程，SIGINT 优雅退出
-- `scripts/backtest.py`：给定 symbol/bar/起止时间，在历史数据上回放 signal rules，统计命中数
-- README 补 Windows / Linux 部署说明（nssm / systemd）
+```bash
+# 先确认 cron 配置和 watchlist 都对
+python scripts/run_forever.py --list-jobs
 
-注意：阶段 6 是可选阶段。如果用户没明确要，做完阶段 5 联通测试就可以收尾。
+# 启动守护（前台阻塞）
+python scripts/run_forever.py
 
-### 关键模块速查（阶段 5 之后）
+# 生产部署：见 README.md 的 systemd / nssm / Docker 模板
+```
+
+### 已规划完毕，没有"下一阶段"了
+
+如果用户后续要加功能，可能的方向（按优先级猜测）：
+
+1. **新的信号规则**：放到 `src/investment/signals/examples/` 或 `custom/` 下，继承 `SignalRule`，加到 `REGISTRY` 或 `extra_registry`。`signals.yaml` 加一个 enabled=true 段就能开。详见 [STAGES.md](STAGES.md) 阶段 3 + [PINE_SCRIPT_MAPPING.md](PINE_SCRIPT_MAPPING.md)。
+2. **加 watchlist 标的**：编辑 `config/symbols.yaml`，新增 `- symbol: SOL-USDT` 等。
+3. **更细的回测**：现在 `scripts/backtest.py` 只统计命中数，没有"命中后 N 根 K 的收益率"之类的指标。要做的话改 `runner/backtest.py` 加 evaluate-then-track 的逻辑。
+4. **WebSocket 行情**：当前是 REST 轮询，最小粒度 1 分钟。要做秒级 / tick 级要重做数据层（参考 OKX V5 WebSocket public channel）。
+5. **告警卡片**：现在是纯文本飞书消息。要做卡片就改 `FeishuNotifier.send_text` 或新增 `send_card`，`msg_type="interactive"`。
+
+### 关键模块速查（阶段 6 之后）
 
 - `from investment.notifier.feishu import FeishuNotifier` — `FeishuNotifier.from_settings()` 拿单例
 - `from investment.notifier.dedup import SignalDedup` — 持久化去重
 - `from investment.runner.pipeline import notify_signals, get_notifier, get_dedup` — pipeline 层统一通知入口
+- `from investment.runner.backtest import backtest_rules, BacktestResult` — 历史回放
 - `python scripts/run_once.py --enable-all --notify` — 跑一轮 + 推送（dry-run 时不真发）
+- `python scripts/run_forever.py` — 长跑守护
+- `python scripts/backtest.py BTC-USDT 1H --enable-all` — 历史回放
 - `python scripts/send_test_message.py` — 联通自检
 
 ---

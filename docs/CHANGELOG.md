@@ -2,6 +2,17 @@
 
 每行记录一次有意义的改动。文档微调（typo、格式）不入此表。
 
+## 2026-05-26 — 阶段 6 完成（长跑 + 简易回测）
+
+- `src/investment/runner/backtest.py`：`backtest_rules(df, rules)` 滚动跑每根 confirmed bar；warmup 默认 125（最长均线/dot 120 + 5）；rule 抛错被吞不影响其他规则
+- `src/investment/runner/__init__.py`：导出 `backtest_rules` / `BacktestResult`
+- `scripts/backtest.py`：CLI 入口，`--start/--end` 限时间窗、`--enable-all`、`--limit-show N` 控制明细行数
+- `scripts/run_forever.py`：守护进程 CLI 包装，启动横幅显示 watchlist / dry-run / 脱敏 chat_id；`--list-jobs` 干跑模式
+- `tests/test_backtest.py`：8 项 — warmup 跳过、不足时 0 评估、未收盘跳过、空规则、聚合、错误隔离
+- `README.md`：从 UTF-16 LE 修成 UTF-8；重写为快速开始 + 常用命令 + 项目结构 + systemd/nssm/Docker 部署模板
+- 全套 `pytest tests/` 102 项全过
+- 端到端实测：`backtest.py BTC-USDT 1H --enable-all` 在 13 天 309 根历史上跑出 34 次命中
+
 ## 2026-05-26 — 阶段 5 完成（飞书提醒，DRY-RUN 通路）
 
 - `src/investment/notifier/feishu.py`：`FeishuNotifier` — `from_settings()` 工厂，凭证不全自动降级 dry-run；真发路径包一次重试，失败 ERROR 不抛
