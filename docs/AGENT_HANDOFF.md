@@ -17,14 +17,17 @@
 
 看 [PROGRESS.md](PROGRESS.md)（一张表）。
 
-**目前在哪儿**：阶段 0、1、2、3、4 完成，**下一步是阶段 5（飞书提醒）**。
+**目前在哪儿**：阶段 0、1、2、3、4、5 完成。阶段 5 是 **DRY-RUN 通路完成**，**真实联通测试待用户填 `.env`**。**下一步可选阶段 6**（长跑 + 回测）。
 
-阶段 5 启动前**必须**先让用户填好 `.env` 里的：
-- `FEISHU_APP_ID`
-- `FEISHU_APP_SECRET`
-- `FEISHU_CHAT_ID`
+⚠ **阶段 5 收尾任务**：用户填 `.env` 里的 `FEISHU_APP_ID` / `FEISHU_APP_SECRET` / `FEISHU_CHAT_ID`、把 `FEISHU_DRY_RUN` 改成 `false` 之后，跑：
 
-获取方法见 [EXTERNAL_APIS.md](EXTERNAL_APIS.md) "飞书自建应用发消息" 一节。
+```bash
+python scripts/send_test_message.py
+```
+
+期望飞书群里收到一条 "Investment 联通测试 ..." 文本。如果失败请看 ERROR 提示是 chat_id / 凭证 / 网络哪一段问题（参考 [EXTERNAL_APIS.md](EXTERNAL_APIS.md) 飞书 §"关键坑"）。
+
+获取凭证的方法在 [EXTERNAL_APIS.md](EXTERNAL_APIS.md) "飞书自建应用发消息" 一节。
 
 阶段 1 已交付：
 - OKX V5 REST 客户端 `src/investment/data/okx_client.py`
@@ -52,6 +55,15 @@
 - `src/investment/runner/scheduler.py`（`trigger_for_timeframe` 把 OKX bar 映射成 UTC CronTrigger，`build_scheduler` 注册所有 watchlist job）
 - `scripts/run_once.py`（CLI 跑一遍，`--enable-all` 临时启用所有规则）
 - 16 项新单测，全套 65 项全过；端到端 `run_once.py --enable-all` 实测可跑
+
+阶段 5 已交付（DRY-RUN 通路）：
+- `src/investment/notifier/feishu.py`（`FeishuNotifier`：`from_settings()` 自动降级、retry once、`_do_send` 抛错被吞）
+- `src/investment/notifier/dedup.py`（`SignalDedup`：JSON 持久化、LRU 1000、坏文件兜底为空状态）
+- `src/investment/runner/pipeline.notify_signals` + `get_notifier` / `get_dedup` 进程级单例
+- `src/investment/runner/scheduler._job` 接入 `notify_signals`（去掉了阶段 4 的 TODO）
+- `scripts/run_once.py --notify`、`scripts/send_test_message.py`
+- 29 项新单测：`tests/test_feishu_notifier.py` (15) + `tests/test_dedup.py` (10) + `tests/test_pipeline.py` 增 4 项；全套 94 测试全绿
+- 联通测试待办：用户填 `.env` → 跑 `scripts/send_test_message.py`
 
 ---
 
@@ -93,42 +105,45 @@ python -c "import investment; print(investment.__version__)"
 
 ## 进入下一阶段时该做什么
 
-按 [STAGES.md](STAGES.md) 走。下一阶段（**阶段 5 — 飞书提醒**）的步骤：
+按 [STAGES.md](STAGES.md) 走。
 
-**⚠ 强制暂停点**：开始前确认 `.env` 里已经填了 `FEISHU_APP_ID` / `FEISHU_APP_SECRET` / `FEISHU_CHAT_ID`。如果没填，先停下来向用户说明获取步骤（见 [EXTERNAL_APIS.md](EXTERNAL_APIS.md)），等用户填完再继续。
+### 收尾阶段 5（建议先做这步，10 分钟）
 
-1. 看 STAGES.md "阶段 5" 段
-2. 关键结构：
-   - `src/investment/notifier/feishu.py`：`FeishuNotifier(app_id, app_secret).send_text(chat_id, text)`
-   - `src/investment/notifier/dedup.py`：基于 (symbol, timeframe, rule, bar_ts) 的去重器，存 `data/cache/sent_signals.json`
-   - `scripts/send_test_message.py`：联通自检
-   - 阶段 4 的 `scheduler._job` 函数里的 TODO 处接 FeishuNotifier
-3. 关键设计：
-   - `content` 必须是 JSON 字符串，不是 dict：`content=json.dumps({"text": "..."})`
-   - `FEISHU_DRY_RUN=true` 时只打印不发，避免开发时刷群
-   - 失败重试 1 次，连续失败 ERROR 但不抛（不让飞书故障带挂 scheduler）
-4. 颗粒度建议：先 `feishu.py` + `send_test_message.py` 验证联通，再 `dedup.py`，再接入 scheduler，再单测
-5. 阶段 5 验收：
-   - `python scripts/send_test_message.py` → 飞书群收到 "Investment 联通测试"
-   - 手动构造命中规则跑 `run_once.py --notify` → 飞书收到 Signal
-   - 同 bar 再跑一次 → 不重复发
-6. 阶段 5 完成后可以继续阶段 6（可选，长跑 + 回测）。
+1. 拿到飞书 `app_id` / `app_secret` / `chat_id`（步骤见 [EXTERNAL_APIS.md](EXTERNAL_APIS.md)）
+2. 编辑 `.env`：
+   ```
+   FEISHU_APP_ID=cli_xxx
+   FEISHU_APP_SECRET=xxx
+   FEISHU_CHAT_ID=oc_xxx
+   FEISHU_DRY_RUN=false
+   ```
+3. 跑联通自检：
+   ```bash
+   python scripts/send_test_message.py
+   ```
+   飞书群里应该收到 "Investment 联通测试 <UTC ts>"。
+4. 真发命中信号联调（可选，命中可遇不可求；想强测时把 signals.yaml 阈值放宽或临时改 dot_pullback 的 max_distance_pct 到 5%）：
+   ```bash
+   python scripts/run_once.py --enable-all --notify
+   ```
+   同 bar 再跑一次，飞书应该**不重发**（去重已生效）。
 
-### 阶段 4（已完成）的关键产出，阶段 5 可直接复用：
+### 下一阶段（可选）— 阶段 6 长跑 + 简易回测
 
-- `from investment.runner.pipeline import run_pipeline`：跑一次拿 Signal 列表
-- `from investment.runner.scheduler import _job` 里有"命中处插入飞书"的占位
-- `from investment.config import get_settings`：拿 FEISHU_APP_ID 等
-- `from investment.signals.base import Signal`：`sig.dedup_key()` 直接拿去重键
+主要内容：
+- `scripts/run_forever.py`：scheduler 守护进程，SIGINT 优雅退出
+- `scripts/backtest.py`：给定 symbol/bar/起止时间，在历史数据上回放 signal rules，统计命中数
+- README 补 Windows / Linux 部署说明（nssm / systemd）
 
-阶段 5 接 scheduler 的最小改动：
-```python
-# scheduler._job 内
-from investment.notifier.feishu import FeishuNotifier
-notifier = FeishuNotifier.from_settings()  # 单例
-for sig in result.signals:
-    notifier.send_text(sig.message)
-```
+注意：阶段 6 是可选阶段。如果用户没明确要，做完阶段 5 联通测试就可以收尾。
+
+### 关键模块速查（阶段 5 之后）
+
+- `from investment.notifier.feishu import FeishuNotifier` — `FeishuNotifier.from_settings()` 拿单例
+- `from investment.notifier.dedup import SignalDedup` — 持久化去重
+- `from investment.runner.pipeline import notify_signals, get_notifier, get_dedup` — pipeline 层统一通知入口
+- `python scripts/run_once.py --enable-all --notify` — 跑一轮 + 推送（dry-run 时不真发）
+- `python scripts/send_test_message.py` — 联通自检
 
 ---
 
@@ -150,8 +165,9 @@ for sig in result.signals:
 
 - [x] ~~Windows 下中文输出乱码~~ — 已在阶段 1 修复（logger 启动时强制 UTF-8）
 - [x] ~~Windows pip 用 GBK 解码 requirements.txt 中文注释失败~~ — 已删除中文注释
+- [x] ~~阶段 5 飞书 chat_id 获取文档~~ — 已在 EXTERNAL_APIS.md 写清楚
+- [ ] **阶段 5 联通测试待跑**：用户填齐 FEISHU_* 凭证后，跑 `python scripts/send_test_message.py` 验证真发链路
 - [ ] OKX 在某些 IP 段（国内裸连）需要走 HK 节点或代理；目前实测网络正常
-- [ ] 飞书 chat_id 获取目前是手动步骤，阶段 5 文档里要写清楚
 - [ ] Windows 下 LF/CRLF 换行符警告很多，可以加 `.gitattributes` 治本（优先级低）
 - [ ] 阶段 6 的回测脚本只是简易统计，不是完整回测框架
 

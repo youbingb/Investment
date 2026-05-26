@@ -2,6 +2,21 @@
 
 每行记录一次有意义的改动。文档微调（typo、格式）不入此表。
 
+## 2026-05-26 — 阶段 5 完成（飞书提醒，DRY-RUN 通路）
+
+- `src/investment/notifier/feishu.py`：`FeishuNotifier` — `from_settings()` 工厂，凭证不全自动降级 dry-run；真发路径包一次重试，失败 ERROR 不抛
+- `src/investment/notifier/dedup.py`：`SignalDedup` — `(symbol, tf, rule, bar_ts)` 去重键 → JSON 持久化到 `data/cache/sent_signals.json`，LRU 上限 1000；坏 JSON 退化为空状态
+- `src/investment/notifier/__init__.py`：暴露 `FeishuNotifier` / `SignalDedup`
+- `src/investment/runner/pipeline.py`：`notify_signals(signals)` 把通知 + 去重打包；`get_notifier` / `get_dedup` 进程级单例；`reset_notifier_singletons` 测试钩子
+- `src/investment/runner/scheduler.py`：`_job` 命中后调 `notify_signals`，去掉了阶段 4 的 TODO 占位
+- `scripts/run_once.py`：`--notify` 开关，一轮扫完统一推送
+- `scripts/send_test_message.py`：联通自检 CLI（dry-run 也可跑）
+- `tests/test_feishu_notifier.py`：15 项 — dry-run 自动降级、retry-once、`_do_send` 异常 / 失败响应、content 必须是 JSON 字符串守门
+- `tests/test_dedup.py`：10 项 — 跨实例落盘、LRU 淘汰、损坏文件兜底、自建父目录
+- `tests/test_pipeline.py`：+4 项 — `notify_signals` 首次发 / 同 bar 去重 / 失败不入 dedup / 空列表
+- 全套 `pytest tests/` 94 项全过
+- ⚠ 联通测试未做：`.env` 还没填 `FEISHU_APP_ID` / `FEISHU_APP_SECRET` / `FEISHU_CHAT_ID`，目前所有真发路径都走 dry-run。凭证齐备后跑 `python scripts/send_test_message.py` 验证
+
 ## 2026-05-26 — 阶段 4 完成（调度器）
 
 - `src/investment/runner/pipeline.py`：`run_pipeline` 串 fetch → compute → signals；`load_watchlist` 展开 symbols.yaml；`PipelineResult` / `WatchItem` dataclass；全局 client/store 单例
