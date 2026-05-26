@@ -9,8 +9,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from investment.notifier.dedup import SignalDedup
 from investment.runner.pipeline import (
-    PipelineResult, WatchItem, load_watchlist, run_pipeline,
+    PipelineResult, WatchItem, load_watchlist, notify_signals, run_pipeline,
 )
 from investment.runner.scheduler import trigger_for_timeframe
 from investment.signals.base import Signal, SignalRule
@@ -192,3 +193,70 @@ def test_trigger_5m():
 def test_trigger_invalid_raises(bad):
     with pytest.raises(ValueError):
         trigger_for_timeframe(bad)
+
+
+# ============================================================
+#  notify_signals — 阶段 5 集成
+# ============================================================
+
+class _StubNotifier:
+    """记录调用的 notifier 替身。"""
+
+    def __init__(self, succeed: bool = True):
+        self.succeed = succeed
+        self.sent: list[str] = []
+
+    def send_text(self, text: str, **kwargs) -> bool:
+        if self.succeed:
+            self.sent.append(text)
+            return True
+        return False
+
+
+def _signal(symbol="BTC-USDT", tf="1H", rule="r1", ts="2026-05-26T10:00"):
+    return Signal(
+        symbol=symbol, timeframe=tf, rule_name=rule, direction="long",
+        bar_ts=pd.Timestamp(ts, tz="UTC"), price=100.0, message=f"{rule}@{symbol}/{tf}",
+    )
+
+
+def test_notify_signals_sends_all_when_first_time(tmp_path: Path):
+    nf = _StubNotifier()
+    dd = SignalDedup(state_path=tmp_path / "sent.json")
+    sigs = [_signal(rule="r1"), _signal(rule="r2")]
+    sent = notify_signals(sigs, notifier=nf, dedup=dd)
+    assert sent == 2
+    assert len(nf.sent) == 2
+
+
+def test_notify_signals_dedup_suppresses_same_bar(tmp_path: Path):
+    nf = _StubNotifier()
+    dd = SignalDedup(state_path=tmp_path / "sent.json")
+    sig = _signal()
+    notify_signals([sig], notifier=nf, dedup=dd)
+    # 同信号再发一次：被去重
+    sent2 = notify_signals([sig], notifier=nf, dedup=dd)
+    assert sent2 == 0
+    assert len(nf.sent) == 1
+
+
+def test_notify_signals_failed_send_not_marked(tmp_path: Path):
+    """send_text 失败的信号不应入 dedup —— 下次还能补发。"""
+    state = tmp_path / "sent.json"
+    nf_fail = _StubNotifier(succeed=False)
+    dd = SignalDedup(state_path=state)
+    sig = _signal()
+    sent = notify_signals([sig], notifier=nf_fail, dedup=dd)
+    assert sent == 0
+    # 再用一个能成功的 notifier 尝试，应该还能发
+    nf_ok = _StubNotifier(succeed=True)
+    dd2 = SignalDedup(state_path=state)  # 重新读盘
+    sent2 = notify_signals([sig], notifier=nf_ok, dedup=dd2)
+    assert sent2 == 1
+
+
+def test_notify_signals_empty_returns_zero(tmp_path: Path):
+    nf = _StubNotifier()
+    dd = SignalDedup(state_path=tmp_path / "sent.json")
+    assert notify_signals([], notifier=nf, dedup=dd) == 0
+    assert nf.sent == []
