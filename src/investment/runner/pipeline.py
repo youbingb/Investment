@@ -14,6 +14,8 @@ from investment.data.kline_store import KlineStore
 from investment.data.okx_client import OKXClient
 from investment.indicators import compute_all
 from investment.logger import logger
+from investment.notifier.dedup import SignalDedup
+from investment.notifier.feishu import FeishuNotifier
 from investment.signals.base import Signal, SignalRule
 from investment.signals.loader import load_rules
 
@@ -21,9 +23,11 @@ DEFAULT_SYMBOLS_CONFIG = (
     Path(__file__).resolve().parents[3] / "config" / "symbols.yaml"
 )
 
-# 共享单例（避免每次 cron 触发都新建 client / store）
+# 共享单例（避免每次 cron 触发都新建 client / store / notifier / dedup）
 _CLIENT: Optional[OKXClient] = None
 _STORE: Optional[KlineStore] = None
+_NOTIFIER: Optional[FeishuNotifier] = None
+_DEDUP: Optional[SignalDedup] = None
 
 
 def _client() -> OKXClient:
@@ -38,6 +42,30 @@ def _store() -> KlineStore:
     if _STORE is None:
         _STORE = KlineStore()
     return _STORE
+
+
+def get_notifier() -> FeishuNotifier:
+    """进程级 FeishuNotifier 单例。"""
+    global _NOTIFIER
+    if _NOTIFIER is None:
+        _NOTIFIER = FeishuNotifier.from_settings()
+    return _NOTIFIER
+
+
+def get_dedup() -> SignalDedup:
+    """进程级 SignalDedup 单例。"""
+    global _DEDUP
+    if _DEDUP is None:
+        _DEDUP = SignalDedup()
+    return _DEDUP
+
+
+def reset_notifier_singletons() -> None:
+    """测试用：重置 notifier / dedup 单例。"""
+    global _NOTIFIER, _DEDUP
+    _NOTIFIER = None
+    _DEDUP = None
+
 
 
 @dataclass
@@ -138,8 +166,39 @@ def load_watchlist(config_path: Optional[Path] = None) -> list[WatchItem]:
     return items
 
 
+def notify_signals(
+    signals: list[Signal],
+    *,
+    notifier: Optional[FeishuNotifier] = None,
+    dedup: Optional[SignalDedup] = None,
+) -> int:
+    """把信号送进飞书 + 落地去重状态。返回实际发送（含 dry-run）的条数。
+
+    传入的 notifier/dedup 为空时取进程级单例。
+    去重命中的信号会跳过，dedup 也不会被 mark_sent（保留旧记录）。
+    notifier.send_text 失败的信号同样不入 dedup（下次还能补发）。
+    """
+    if not signals:
+        return 0
+    nf = notifier or get_notifier()
+    dd = dedup or get_dedup()
+
+    sent = 0
+    for sig in signals:
+        if not dd.should_send(sig):
+            logger.debug(f"去重跳过：{sig.dedup_key()}")
+            continue
+        if nf.send_text(sig.message):
+            dd.mark_sent(sig)
+            sent += 1
+        else:
+            logger.warning(f"通知失败，不计入去重：{sig.dedup_key()}")
+    return sent
+
+
 __all__ = [
-    "run_pipeline", "load_watchlist",
+    "run_pipeline", "load_watchlist", "notify_signals",
     "PipelineResult", "WatchItem",
     "DEFAULT_SYMBOLS_CONFIG",
+    "get_notifier", "get_dedup", "reset_notifier_singletons",
 ]

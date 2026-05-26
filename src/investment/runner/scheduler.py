@@ -18,7 +18,12 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from investment.logger import logger, setup_logger
-from investment.runner.pipeline import WatchItem, load_watchlist, run_pipeline
+from investment.runner.pipeline import (
+    WatchItem,
+    load_watchlist,
+    notify_signals,
+    run_pipeline,
+)
 
 
 def trigger_for_timeframe(timeframe: str) -> CronTrigger:
@@ -62,7 +67,10 @@ def _job(item: WatchItem) -> None:
 
     for sig in result.signals:
         logger.info(f"命中：{sig.message}")
-        # 阶段 5 在此处插入 FeishuNotifier.send_text(sig.message)
+    sent = notify_signals(result.signals)
+    logger.info(
+        f"{item.symbol} {item.timeframe}: {len(result.signals)} 个信号，发出 {sent} 条"
+    )
 
 
 def build_scheduler() -> BlockingScheduler:
