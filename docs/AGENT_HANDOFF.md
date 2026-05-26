@@ -66,12 +66,14 @@ python scripts/send_test_message.py
 - 联通测试待办：用户填 `.env` → 跑 `scripts/send_test_message.py`
 
 阶段 6 已交付：
-- `src/investment/runner/backtest.py`（`backtest_rules` 滚动跑每根 confirmed bar；warmup 125；`BacktestResult.hits_by_rule` / `hits_by_direction`）
-- `scripts/backtest.py`（CLI；`--start/--end/--enable-all/--limit-show`）
-- `scripts/run_forever.py`（守护进程 CLI；启动横幅显示 watchlist / dry-run / 脱敏 chat_id；`--list-jobs` 干跑）
+- `src/investment/runner/backtest.py`：`backtest_rules` 滚动跑每根 confirmed bar；`evaluate_outcomes(result, df, horizons, exit_horizon)` 算 long/short 反号的 horizon return + MFE/MAE + 自动跳 neutral；`backtest_with_returns` 一次跑完
+- `BacktestResult` 聚合：`hits_by_rule` / `hits_by_direction`（信号层）+ `stats_by_rule()` / `equity_curve()` / `total_return` / `max_drawdown`（收益层）
+- `scripts/backtest.py`：终端三段表（per-rule 胜率/平均·中位收益/MFE-MAE、按方向、资金曲线摘要）；`--horizons` / `--exit-after` / `--csv` 可选
+- `scripts/run_forever.py`：守护进程 CLI；启动横幅显示 watchlist / dry-run / 脱敏 chat_id；`--list-jobs` 干跑
 - `README.md` 修 UTF-16 乱码 + 重写为快速开始 + systemd / nssm / Docker 部署模板
-- 8 项新单测；全套 102 测试全绿
-- 端到端实测：`backtest BTC-USDT 1H --enable-all` 13 天 309 根 → 34 命中
+- `.gitignore` 加 `data/reports/*` 屏蔽回测产物
+- 20 项 backtest 单测；全套 114 测试全绿
+- 端到端实测：`backtest BTC-USDT 1H --enable-all` 34 笔交易 / 胜率 dot 67.7% golden_cross 33.3% / 累计 -0.26% / 最大回撤 -8.30%（13 天数据）
 
 ---
 
@@ -163,11 +165,15 @@ python scripts/run_forever.py
 - `from investment.notifier.feishu import FeishuNotifier` — `FeishuNotifier.from_settings()` 拿单例
 - `from investment.notifier.dedup import SignalDedup` — 持久化去重
 - `from investment.runner.pipeline import notify_signals, get_notifier, get_dedup` — pipeline 层统一通知入口
-- `from investment.runner.backtest import backtest_rules, BacktestResult` — 历史回放
+- `from investment.runner.backtest import backtest_with_returns, BacktestResult, SignalOutcome` — 历史回放 + 收益跟踪一次跑完
 - `python scripts/run_once.py --enable-all --notify` — 跑一轮 + 推送（dry-run 时不真发）
 - `python scripts/run_forever.py` — 长跑守护
-- `python scripts/backtest.py BTC-USDT 1H --enable-all` — 历史回放
+- `python scripts/backtest.py BTC-USDT 1H --enable-all --csv data/reports/btc_1h.csv` — 历史回放 + CSV 导出
 - `python scripts/send_test_message.py` — 联通自检
+
+### 修了 backtest 但 is_win 返回 numpy 标量的坑
+
+`SignalOutcome.is_win` 现在显式 `bool(r > 0)`，否则 numpy 比较得到的是 `np.True_` / `np.False_`，跟 Python `True is` 测试会断言失败。改新规则的话遵循这个习惯。
 
 ---
 

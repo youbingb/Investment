@@ -12,12 +12,13 @@
 | 3 | 信号引擎框架（含 2 个示例规则） | ✅ | 2026-05-26 完成；16 项单测全过 |
 | 4 | 调度器（APScheduler 轮询 → pipeline） | ✅ | 2026-05-26 完成；65 项全套单测全过；run_once 实测扫 4 个组合 |
 | 5 | 飞书提醒（lark-oapi 自建应用） | ✅ | 2026-05-26 完成（DRY-RUN 通路）；94 项全套单测全过。联通测试待用户填 .env 后跑 send_test_message.py |
-| 6 | 长跑模式 + 简易回测脚本（可选） | ✅ | 2026-05-26 完成；102 项全套单测全过；backtest 实测 BTC-USDT 1H 13 天 → 34 命中 |
+| 6 | 长跑模式 + 简易回测脚本（可选） | ✅ | 2026-05-26 完成 + 增强；114 项全套单测全过；backtest 实测 BTC-USDT 1H 13 天 34 笔 / 累计 -0.26% / 回撤 -8.30% |
 
 ---
 
 ## 最新一次更新
 
+- **2026-05-26** — 阶段 6 增强（完整历史回测）。`runner/backtest.py` 加 `SignalOutcome` + `evaluate_outcomes` + 聚合（胜率 / 平均·中位收益 / MFE-MAE / equity / drawdown）；`scripts/backtest.py` 升级到终端三段表 + `--horizons` / `--exit-after` / `--csv` 选项；`.gitignore` 屏蔽 `data/reports/*`。+12 项新单测，全套 114 项全绿。实测 BTC-USDT 1H 缓存：dot_pullback 胜率 67.7%、golden_cross 33.3%、累计简单收益 -0.26%、最大回撤 -8.30%。
 - **2026-05-26** — 阶段 6 完成。`runner/backtest.py`（backtest_rules + BacktestResult）、`scripts/backtest.py` CLI（实测 BTC-USDT 1H 309 根 → 34 命中）、`scripts/run_forever.py` 守护进程 CLI（含启动横幅 + `--list-jobs`）、`README.md` 重写为快速开始 + 部署模板（systemd / nssm / Docker），顺手修复 README 的 UTF-16 LE 乱码。8 项新单测，全套 102 项全绿。项目主流程**到此完工**。剩余收尾工作：用户填 .env 凭证后跑联通自检 `send_test_message.py`。
 - **2026-05-26** — 阶段 5 完成（DRY-RUN 通路）。`notifier/feishu.py`（FeishuNotifier + retry once + 凭证不全自动降级 dry-run）、`notifier/dedup.py`（JSON 持久化、LRU 1000、坏文件兜底）、`runner/pipeline.notify_signals` + 单例工厂、`scheduler._job` 接入、`run_once.py --notify`、`scripts/send_test_message.py` 联通自检。29 项新单测，全套 94 项全过。当前 `.env` 中 FEISHU_* 未填，所有真发都走 dry-run；用户填完凭证后跑 `python scripts/send_test_message.py` 验证联通即可关闭阶段 5。
 - **2026-05-26** — 阶段 4 完成。`runner/pipeline.py`、`scripts/run_once.py`、`runner/scheduler.py` 落地。16 项新单测，全套 65 测试全绿。`python scripts/run_once.py --enable-all` 端到端扫 4 个组合（BTC/ETH × 1H/4H）正常返回"无命中"。下一步进入阶段 5（飞书提醒），开始前需要用户填 `.env`。

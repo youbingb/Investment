@@ -2,6 +2,15 @@
 
 每行记录一次有意义的改动。文档微调（typo、格式）不入此表。
 
+## 2026-05-26 — 阶段 6 增强（完整历史回测）
+
+- `src/investment/runner/backtest.py`：新增 `SignalOutcome`（entry_price / horizon_returns / mfe_pct / mae_pct / exit_return / is_win）；`evaluate_outcomes(result, df, horizons, exit_horizon)` 后处理 long/short 反号 + MFE/MAE 在 exit 窗口内、neutral 跳过、窗口不足 NaN；`BacktestResult` 加 `stats_by_rule` / `equity_curve` / `total_return` / `max_drawdown`；`backtest_with_returns` 一次跑完
+- `scripts/backtest.py` 升级：终端三段表（per-rule 胜率/平均·中位收益/MFE-MAE、按方向、资金曲线摘要）、`--horizons "1,5,10,20"` 默认、`--exit-after N` 默认 10、`--csv PATH` 导出
+- `.gitignore` 加 `data/reports/*` 屏蔽回测产物
+- `tests/test_backtest.py` +12 项：线性 long/short 反号、MFE/MAE long&short、窗口不足、neutral 跳过、stats 聚合、equity 累加、drawdown、end-to-end
+- 全套 `pytest tests/` 114 项全过
+- 实测 BTC-USDT 1H 缓存（13 天 309 根）：34 笔交易、累计 -0.26%、最大回撤 -8.30%、dot_pullback 胜率 67.7% / golden_cross 33.3%
+
 ## 2026-05-26 — 阶段 6 完成（长跑 + 简易回测）
 
 - `src/investment/runner/backtest.py`：`backtest_rules(df, rules)` 滚动跑每根 confirmed bar；warmup 默认 125（最长均线/dot 120 + 5）；rule 抛错被吞不影响其他规则
