@@ -158,6 +158,7 @@ python scripts/run_forever.py
    - `golden_cross` / `dot_pullback` — 阶段 3 原始示例
    - `ma_cluster_breakout` — 双均线交易系统开仓 A（6MA 密集后突破）
    - `ma20_pullback` — 双均线交易系统开仓 B（发散后回踩 20 均线不破）
+   - 双均线交易系统使用文档：[DUAL_MA_STRATEGY.md](DUAL_MA_STRATEGY.md)
 2. **加 watchlist 标的**：编辑 `config/symbols.yaml`，新增 `- symbol: SOL-USDT` 等。
 3. **更细的回测**：现在 `scripts/backtest.py` 只统计命中数，没有"命中后 N 根 K 的收益率"之类的指标。要做的话改 `runner/backtest.py` 加 evaluate-then-track 的逻辑。
 4. **WebSocket 行情**：当前是 REST 轮询，最小粒度 1 分钟。要做秒级 / tick 级要重做数据层（参考 OKX V5 WebSocket public channel）。

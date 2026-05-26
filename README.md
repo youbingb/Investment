@@ -120,6 +120,19 @@ CMD ["python", "scripts/run_forever.py"]
 
 ---
 
+## 内置交易策略
+
+| 规则 | 触发 | 适用 |
+|---|---|---|
+| `golden_cross` | EMA 上穿/下穿 SMA（经典金叉死叉） | 趋势确认 |
+| `dot_pullback` | 当前 K 线 low 接近 dot 圆点 | 支撑/压力回踩 |
+| `ma_cluster_breakout` | 6 条均线密集 → 收盘价突破/跌破 | 双均线交易系统 · 开仓方法 A |
+| `ma20_pullback` | 6 条均线发散 + 影线触 20 均线不破 | 双均线交易系统 · 开仓方法 B |
+
+**双均线交易系统** 完整使用文档：[docs/DUAL_MA_STRATEGY.md](docs/DUAL_MA_STRATEGY.md) — 含原理、参数、配置、回测、调参、风控建议。
+
+---
+
 ## 协作 agent 须知
 
 如果你是接手这个项目的 AI agent，**先看 [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md)**。
