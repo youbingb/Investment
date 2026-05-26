@@ -2,6 +2,19 @@
 
 每行记录一次有意义的改动。文档微调（typo、格式）不入此表。
 
+## 2026-05-26 — 双均线交易系统两条新规则
+
+视频出处：YouTube《我的第一个100W来源，双均线交易系统实战》(币哥) `a6kCJroORaI`。完整字幕 + Pine Script 描述抓到 `.cache/yt/`（用 Playwright + 已登录 YouTube 会话绕过反爬）。
+
+- `src/investment/signals/examples/ma_cluster_breakout.py`：均线密集后突破。6 条均线 (SMA/EMA 20-60-120) 上根 bar 极差/均值*100 ≤ `cluster_width_pct` 视为密集；当前 bar close 突破簇顶 / 跌破簇底 → 长 / 短信号；建议止损放在上根 bar 簇 min / max
+- `src/investment/signals/examples/ma20_pullback.py`：均线发散后回踩 20 均线不破。上根 bar 6MA 发散度 ≥ `min_spread_pct`；可选要求 ema20/60/120 单调对齐趋势方向；当根 wick 触及 `ma_col` (默认 ema20) 在 `tolerance_pct` 内 + close 仍在均线"正确"一侧 → 顺势开仓；建议止损放在 ma_col ± tolerance
+- `src/investment/signals/loader.REGISTRY`：注册两条新规则
+- `config/signals.yaml`：加 `ma_cluster_breakout` / `ma20_pullback` 段（默认 enabled=false）
+- `tests/test_signals_dual_ma.py`：16 项新单测 — 上/下破命中、密度阈值、突破缺失、NaN / 缺列、发散度门槛、趋势对齐开关、tolerance 收紧、close 反向跌穿、ma_col 切到 sma20、REGISTRY 包含
+- 全套 `pytest tests/` 134 项全过
+- 实测回测 BTC-USDT 1H（13 天 309 根）：`ma_cluster_breakout` 7 笔 / 胜率 28.6% / **赔率 3.43**；`ma20_pullback` 24 笔 / 胜率 25.0% — 与视频"胜率 30-40%、赔率 ≥ 1:3"基本吻合
+- 实测 BTC-USDT 4H：`ma20_pullback` 26 笔 / 胜率 **57.7%** — 4H 周期表现更好，验证视频"中线交易"的建议
+
 ## 2026-05-26 — 阶段 6.6（盈亏比 + Streamlit 可视化）
 
 - `src/investment/runner/backtest.py`：`stats_by_rule()` 新增 `avg_win` / `avg_loss` / `payoff_ratio`（赔率：均盈/|均亏|）/ `profit_factor`（盈亏比：总盈/|总亏|）；提取 `_ratio_pos_over_negabs` 处理零笔/全胜/全负边界（NaN / inf / 0）

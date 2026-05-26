@@ -21,11 +21,15 @@ from investment.logger import logger
 from investment.signals.base import SignalRule
 from investment.signals.examples.dot_pullback import DotPullbackRule
 from investment.signals.examples.golden_cross import GoldenCrossRule
+from investment.signals.examples.ma20_pullback import Ma20PullbackRule
+from investment.signals.examples.ma_cluster_breakout import MaClusterBreakoutRule
 
 #: 内置规则注册表（name → class）。
 REGISTRY: dict[str, type[SignalRule]] = {
     GoldenCrossRule.name: GoldenCrossRule,
     DotPullbackRule.name: DotPullbackRule,
+    MaClusterBreakoutRule.name: MaClusterBreakoutRule,
+    Ma20PullbackRule.name: Ma20PullbackRule,
 }
 
 DEFAULT_CONFIG = Path(__file__).resolve().parents[3] / "config" / "signals.yaml"

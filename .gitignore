@@ -25,6 +25,10 @@ data/reports/*
 !data/reports/.gitkeep
 *.parquet
 
+# 临时缓存 / 工具中间产物
+.cache/
+.playwright-mcp/
+
 # 编辑器
 .idea/
 .vscode/

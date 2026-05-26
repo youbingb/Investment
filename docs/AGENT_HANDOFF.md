@@ -154,7 +154,10 @@ python scripts/run_forever.py
 
 如果用户后续要加功能，可能的方向（按优先级猜测）：
 
-1. **新的信号规则**：放到 `src/investment/signals/examples/` 或 `custom/` 下，继承 `SignalRule`，加到 `REGISTRY` 或 `extra_registry`。`signals.yaml` 加一个 enabled=true 段就能开。详见 [STAGES.md](STAGES.md) 阶段 3 + [PINE_SCRIPT_MAPPING.md](PINE_SCRIPT_MAPPING.md)。
+1. **新的信号规则**：放到 `src/investment/signals/examples/` 或 `custom/` 下，继承 `SignalRule`，加到 `REGISTRY` 或 `extra_registry`。`signals.yaml` 加一个 enabled=true 段就能开。详见 [STAGES.md](STAGES.md) 阶段 3 + [PINE_SCRIPT_MAPPING.md](PINE_SCRIPT_MAPPING.md)。**已实现的扩展规则**：
+   - `golden_cross` / `dot_pullback` — 阶段 3 原始示例
+   - `ma_cluster_breakout` — 双均线交易系统开仓 A（6MA 密集后突破）
+   - `ma20_pullback` — 双均线交易系统开仓 B（发散后回踩 20 均线不破）
 2. **加 watchlist 标的**：编辑 `config/symbols.yaml`，新增 `- symbol: SOL-USDT` 等。
 3. **更细的回测**：现在 `scripts/backtest.py` 只统计命中数，没有"命中后 N 根 K 的收益率"之类的指标。要做的话改 `runner/backtest.py` 加 evaluate-then-track 的逻辑。
 4. **WebSocket 行情**：当前是 REST 轮询，最小粒度 1 分钟。要做秒级 / tick 级要重做数据层（参考 OKX V5 WebSocket public channel）。

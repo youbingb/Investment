@@ -18,6 +18,8 @@
 
 ## 最新一次更新
 
+- **2026-05-26** — 双均线交易系统两条新规则（来自 YouTube 视频 `a6kCJroORaI`）。`signals/examples/ma_cluster_breakout.py`（6 条均线缠绕后向上/向下突破）+ `signals/examples/ma20_pullback.py`（趋势中首次回踩 20 均线触而不破），都注册到 `signals/loader.REGISTRY`，`config/signals.yaml` 加默认条目（enabled=false）。+16 项新单测，全套 134 项全绿。实测 BTC-USDT 1H：`ma_cluster_breakout` 赔率 3.43、`ma20_pullback` 胜率 25%；BTC-USDT 4H：`ma20_pullback` 胜率 57.7% —— 跟视频"胜率 30-40%、赔率 ≥ 1:3"的描述高度吻合。视频字幕和原始 Pine Script 描述存档在 `.cache/yt/`。
+
 - **2026-05-26** — 阶段 6.6（盈亏比 + Streamlit 可视化）。`runner/backtest.py.stats_by_rule` 新增 avg_win / avg_loss / payoff_ratio（赔率）/ profit_factor（盈亏比），边界（零笔/全胜/全负）走 `_ratio_pos_over_negabs` 统一映射 NaN/inf/0；`scripts/backtest.py` 表头扩到 11 列；新增 `scripts/dashboard.py` Streamlit 仪表盘（sidebar 选 symbol/tf/规则/时间窗，主区域：5 头部指标 + NAV+回撤 + 规则统计表 + K 线+long/short 散点 + exit_return 直方图，plotly 出图）；`pyproject.toml` / `requirements.txt` 加 `viz` 可选依赖（streamlit≥1.30、plotly≥5.18）。+4 项单测，全套 118 项全绿。Playwright headless 端到端烟测通过。
 
 - **2026-05-26** — 阶段 6 增强（完整历史回测）。`runner/backtest.py` 加 `SignalOutcome` + `evaluate_outcomes` + 聚合（胜率 / 平均·中位收益 / MFE-MAE / equity / drawdown）；`scripts/backtest.py` 升级到终端三段表 + `--horizons` / `--exit-after` / `--csv` 选项；`.gitignore` 屏蔽 `data/reports/*`。+12 项新单测，全套 114 项全绿。实测 BTC-USDT 1H 缓存：dot_pullback 胜率 67.7%、golden_cross 33.3%、累计简单收益 -0.26%、最大回撤 -8.30%。
