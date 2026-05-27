@@ -1,37 +1,29 @@
-# 信号规则开关与参数（阶段 3 起用）
-# 阶段 0/1/2 时此文件不被读取，仅作为示意
+# 信号规则开关与参数
 
 rules:
-  # 内置示例：均线金叉
   golden_cross:
-    enabled: false              # 阶段 3 才打开
+    enabled: false
     fast: ema20
     slow: sma60
 
-  # 内置示例：圆点回踩
   dot_pullback:
     enabled: false
-    dot: dot60                  # 用 dot20 / dot60 / dot120
-    tolerance_pct: 0.5          # 当前 low 距离 dot 值在 ±0.5% 内视为回踩
+    dot: dot60
+    tolerance_pct: 0.5
 
   # 双均线交易系统 · 开仓方法 A — 均线密集后突破
-  # 6 条均线 (SMA/EMA 20-60-120) 上根 bar 极差/均值≤cluster_width_pct → 视为密集，
-  # 当前 bar close 突破或跌破整个簇 → 顺势开仓。
   ma_cluster_breakout:
-    enabled: false
+    enabled: true
     cluster_width_pct: 0.6      # 6MA (max-min)/avg*100 ≤ 此值视为密集
     breakout_buffer_pct: 0.0    # 突破时 close 需超出簇 max/min 的额外缓冲
 
   # 双均线交易系统 · 开仓方法 B — 均线发散后回踩 20 均线不破
-  # 上根 bar 6MA (max-min)/avg ≥ min_spread_pct 视为发散；当根 wick 触及 20 均线
-  # 但收盘没有有效突破 → 顺势开仓。
   ma20_pullback:
-    enabled: false
+    enabled: true
     ma_col: ema20               # 用 ema20 或 sma20
     tolerance_pct: 0.3          # 当根 wick 距 ma20 在 ±此值内视为触碰
     min_spread_pct: 1.0         # 上根 bar 发散度门槛
     require_trend_align: true   # 是否强制 ema20/60/120 单调
 
-# 通用配置
 notify:
-  dedup_window_bars: 3          # 同一规则在 N 根 K 线内只发一次
+  dedup_window_bars: 3

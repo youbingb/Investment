@@ -1,0 +1,35 @@
+# 模拟交易配置 — 100 USDT 小资金均线密集交易法
+
+enabled: true
+
+# 初始余额 100 USDT
+initial_balance: 100
+
+position:
+  # 小资金每笔用 20%（20 USDT 左右），保证有足够的钱同时开 2-3 个仓
+  size_pct: 0.20
+  # 单笔上限 30 USDT（100 的 30%）
+  max_amount: 30
+  # 单笔下限 5 USDT（太小没意义）
+  min_amount: 5
+
+risk:
+  # 止损 3%（均线密集突破，假突破概率不低，控制单笔亏损）
+  stop_loss_pct: 3.0
+  # 止盈 6%（赔率 1:2，和回测结果吻合）
+  take_profit_pct: 6.0
+  # 最多同时 2 个持仓（100 刀资金有限）
+  max_open_positions: 2
+  # 每个 symbol 最多 1 个方向
+  max_positions_per_symbol: 1
+
+# 只交易均线密集相关规则
+rules:
+  allow:
+    - ma_cluster_breakout    # 6MA 密集后突破（开仓方法 A）
+    - ma20_pullback           # 均线发散后回踩 20 均线（开仓方法 B）
+  deny: []
+
+directions:
+  long: true
+  short: true

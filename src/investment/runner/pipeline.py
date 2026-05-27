@@ -18,6 +18,8 @@ from investment.notifier.dedup import SignalDedup
 from investment.notifier.feishu import FeishuNotifier
 from investment.signals.base import Signal, SignalRule
 from investment.signals.loader import load_rules
+from investment.trader.executor import TradeExecutor
+from investment.trader.paper_account import PaperAccount
 
 DEFAULT_SYMBOLS_CONFIG = (
     Path(__file__).resolve().parents[3] / "config" / "symbols.yaml"
@@ -28,6 +30,8 @@ _CLIENT: Optional[OKXClient] = None
 _STORE: Optional[KlineStore] = None
 _NOTIFIER: Optional[FeishuNotifier] = None
 _DEDUP: Optional[SignalDedup] = None
+_ACCOUNT: Optional[PaperAccount] = None
+_EXECUTOR: Optional[TradeExecutor] = None
 
 
 def _client() -> OKXClient:
@@ -65,6 +69,36 @@ def reset_notifier_singletons() -> None:
     global _NOTIFIER, _DEDUP
     _NOTIFIER = None
     _DEDUP = None
+
+
+def get_account() -> PaperAccount:
+    """进程级 PaperAccount 单例。"""
+    global _ACCOUNT
+    if _ACCOUNT is None:
+        # 从 trading.yaml 读取初始余额
+        trading_cfg_path = Path(__file__).resolve().parents[3] / "config" / "trading.yaml"
+        initial_balance = 10000.0
+        if trading_cfg_path.exists():
+            with open(trading_cfg_path, encoding="utf-8") as f:
+                tcfg = yaml.safe_load(f) or {}
+            initial_balance = float(tcfg.get("initial_balance", 10000.0))
+        _ACCOUNT = PaperAccount(initial_balance=initial_balance)
+    return _ACCOUNT
+
+
+def get_executor() -> TradeExecutor:
+    """进程级 TradeExecutor 单例。"""
+    global _EXECUTOR
+    if _EXECUTOR is None:
+        _EXECUTOR = TradeExecutor(get_account())
+    return _EXECUTOR
+
+
+def reset_trader_singletons() -> None:
+    """测试用：重置 account / executor 单例。"""
+    global _ACCOUNT, _EXECUTOR
+    _ACCOUNT = None
+    _EXECUTOR = None
 
 
 
@@ -196,9 +230,28 @@ def notify_signals(
     return sent
 
 
+
+def execute_trades(
+    signals: list[Signal],
+    current_prices: Optional[dict[str, float]] = None,
+    *,
+    executor: Optional[TradeExecutor] = None,
+) -> list[dict]:
+    """把信号送进交易执行器，返回每笔的处理结果。
+
+    传入的 executor 为空时取进程级单例。
+    """
+    if not signals:
+        return []
+    ex = executor or get_executor()
+    return ex.process_signals(signals, current_prices)
+
+
 __all__ = [
     "run_pipeline", "load_watchlist", "notify_signals",
+    "execute_trades",
     "PipelineResult", "WatchItem",
     "DEFAULT_SYMBOLS_CONFIG",
     "get_notifier", "get_dedup", "reset_notifier_singletons",
+    "get_account", "get_executor", "reset_trader_singletons",
 ]

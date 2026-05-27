@@ -39,3 +39,6 @@ data/reports/*
 # 日志
 logs/
 *.log
+
+# 模拟交易运行时状态（不入库）
+data/paper_account.json
