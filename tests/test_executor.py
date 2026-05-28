@@ -35,6 +35,10 @@ def tmp_config(tmp_path: Path) -> Path:
                 "max_open_positions": 3,
                 "max_positions_per_symbol": 1,
             },
+            "exit_strategy": {
+                "method": [{"name": "fixed_odds", "odds_ratio": 3.0}],
+                "fixed_odds": {"odds_ratio": 3.0},
+            },
             "rules": {"allow": [], "deny": []},
             "directions": {"long": True, "short": True},
         }),
@@ -193,16 +197,36 @@ class TestStopLossCalculation:
         sig = _make_signal(direction="long", price=50000.0)
         results = executor.process_signals([sig], {"BTC-USDT": 50000.0})
         r = results[0]
-        # stop_loss_pct=3%, take_profit_pct=6%
-        assert r["stop_loss"] == pytest.approx(48500.0)  # 50000 * 0.97
-        assert r["take_profit"] == pytest.approx(53000.0)  # 50000 * 1.06
+        # stop_loss_pct=3% → 48500
+        # fixed_odds 1:3 → risk=1500, reward=4500, tp=54500
+        assert r["stop_loss"] == pytest.approx(48500.0)
+        assert r["take_profit"] == pytest.approx(54500.0)
+        assert r["exit_strategy"] == "fixed_odds"
+        assert "1:3.0" in r["odds_ratio"]
 
     def test_short_stop_loss_take_profit(self, executor: TradeExecutor) -> None:
         sig = _make_signal(direction="short", price=50000.0)
         results = executor.process_signals([sig], {"BTC-USDT": 50000.0})
         r = results[0]
-        assert r["stop_loss"] == pytest.approx(51500.0)  # 50000 * 1.03
-        assert r["take_profit"] == pytest.approx(47000.0)  # 50000 * 0.94
+        # stop_loss_pct=3% → 51500
+        # fixed_odds 1:3 → risk=1500, reward=4500, tp=45500
+        assert r["stop_loss"] == pytest.approx(51500.0)
+        assert r["take_profit"] == pytest.approx(45500.0)
+
+    def test_custom_odds_ratio(self, account: PaperAccount, tmp_config: Path) -> None:
+        """自定义赔率 1:5。"""
+        cfg = yaml.safe_load(tmp_config.read_text(encoding="utf-8"))
+        cfg["exit_strategy"] = {
+            "method": [{"name": "fixed_odds", "odds_ratio": 5.0}],
+        }
+        tmp_config.write_text(yaml.dump(cfg), encoding="utf-8")
+        executor = TradeExecutor(account, config_path=tmp_config)
+
+        sig = _make_signal(direction="long", price=50000.0)
+        results = executor.process_signals([sig], {"BTC-USDT": 50000.0})
+        r = results[0]
+        # risk=1500, reward=1500*5=7500, tp=57500
+        assert r["take_profit"] == pytest.approx(57500.0)
 
 
 class TestCheckPositions:
@@ -221,7 +245,8 @@ class TestCheckPositions:
         sig = _make_signal(direction="long", price=50000.0)
         executor.process_signals([sig], {"BTC-USDT": 50000.0})
 
-        results = executor.check_positions({"BTC-USDT": 54000.0})
+        # 止盈 54500，55000 足够触发
+        results = executor.check_positions({"BTC-USDT": 55000.0})
         assert len(results) == 1
         assert not account.has_position("BTC-USDT", "long")
 
